@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
+import { AuthProvider } from '@/context/AuthContext';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 export default function RootLayout() {
@@ -19,11 +20,23 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
+      <AuthProvider>
+        <Stack screenOptions={{ 
+          headerStyle: {
+            backgroundColor: colorScheme === 'dark' ? '#151718' : '#fff',
+          },
+          headerTintColor: colorScheme === 'dark' ? '#ECEDEE' : '#11181C',
+          animation: 'slide_from_right',
+        }}>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ title: 'Log In' }} />
+          <Stack.Screen name="signup" options={{ title: 'Sign Up' }} />
+          <Stack.Screen name="email-signin" options={{ title: 'Sign In with Email' }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="+not-found" />
+        </Stack>
+        <StatusBar style="auto" />
+      </AuthProvider>
     </ThemeProvider>
   );
 }

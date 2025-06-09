@@ -1,75 +1,103 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { router } from 'expo-router';
+import { ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 
 import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
+import { useAuth } from '@/context/AuthContext';
 
-export default function HomeScreen() {
+export default function DashboardScreen() {
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/');
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
+    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+      <ThemedView style={styles.header}>
         <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+          source={require('@/assets/images/icon.png')}
+          style={styles.logo}
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
+        <ThemedView style={styles.titleContainer}>
+          <ThemedText type="title">Dashboard</ThemedText>
+          <HelloWave />
+        </ThemedView>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Welcome, {user?.name || 'User'}!</ThemedText>
+        <ThemedText>You've successfully logged in to Splitwiser.</ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Recent Expenses</ThemedText>
+        <ThemedText>You have no recent expenses.</ThemedText>
       </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Friends</ThemedText>
+        <ThemedText>You haven't added any friends yet.</ThemedText>
       </ThemedView>
-    </ParallaxScrollView>
+
+      <ThemedView style={styles.card}>
+        <ThemedText type="subtitle">Total Balance</ThemedText>
+        <ThemedText type="title" style={styles.balance}>$0.00</ThemedText>
+        <ThemedText>You're all settled up!</ThemedText>
+      </ThemedView>
+
+      <TouchableOpacity style={styles.button} onPress={handleLogout}>
+        <ThemedText style={styles.buttonText}>Log Out</ThemedText>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: 16,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  logo: {
+    width: 50,
+    height: 50,
+    marginRight: 16,
+  },
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  card: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  balance: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginVertical: 8,
+  },
+  button: {
+    backgroundColor: '#E53935',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
