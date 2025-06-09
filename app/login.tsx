@@ -1,103 +1,176 @@
-import { BackButton } from '@/components/BackButton';
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 import { useAuth } from '@/context/AuthContext';
-import { useThemeColor } from '@/hooks/useThemeColor';
 import { Image } from 'expo-image';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const { width } = Dimensions.get('window');
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login, isLoading } = useAuth();
 
-  const inputBackground = useThemeColor('background');
-  const textColor = useThemeColor('text');
-  const tintColor = useThemeColor('tint');
-
   const handleLogin = async () => {
-    if (!email) return setError('Email is required');
-    if (!password) return setError('Password is required');
-    
     setError('');
-    const success = await login(email, password);
+    const success = await login('demo@example.com', 'password');
     
     if (success) {
       router.replace('/(tabs)');
     } else {
-      setError('Invalid email or password');
+      setError('An error occurred while logging in');
     }
   };
+
+  const handleSignUp = () => {
+    router.push('/signup');
+  };
+
+  const handleEmailSignIn = () => {
+    router.push('/email-signin');
+  };
+  
   return (
-    <ThemedView style={styles.container}>
-      <BackButton />
-      <Image 
-        source={require('@/assets/images/icon.png')} 
-        style={styles.logo}
-        contentFit="contain"
-      />
-      <ThemedText type="title" style={styles.title}>Log In</ThemedText>
-      
-      {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
-      
-      <TextInput
-        style={[
-          styles.input,
-          { backgroundColor: inputBackground, color: textColor }
-        ]}
-        placeholder="Email"
-        placeholderTextColor="#9BA1A6"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
+    <View style={styles.container}>
+      {/* Background Image */}
+      <Image
+        source={require('../assets/images/login-background.png')}
+        style={styles.backgroundImage}
+        contentFit="cover"
       />
       
-      <TextInput
-        style={[
-          styles.input,
-          { backgroundColor: inputBackground, color: textColor }
-        ]}
-        placeholder="Password"
-        placeholderTextColor="#9BA1A6"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-      />
-      
-      <TouchableOpacity 
-        style={[styles.button, { backgroundColor: tintColor }]}
-        onPress={handleLogin}
-        disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <ThemedText style={styles.buttonText}>Log In</ThemedText>
-        )}
-      </TouchableOpacity>
-      
-      <ThemedView style={styles.footer}>
-        <ThemedText>Don't have an account? </ThemedText>
-        <Link href="/signup" asChild>
-          <TouchableOpacity>
-            <ThemedText style={{ color: tintColor }}>Sign Up</ThemedText>
+      <SafeAreaView style={styles.content}>
+        <View style={styles.headerContainer}>
+          <ThemedText style={styles.appTitle}>Splitwiser</ThemedText>
+        </View>
+        
+        <View style={styles.titleContainer}>
+          <ThemedText style={styles.title}>Get started</ThemedText>
+        </View>
+        
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity 
+            style={styles.loginButton}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <ThemedText style={styles.loginButtonText}>Log in</ThemedText>
+            )}
           </TouchableOpacity>
-        </Link>
-      </ThemedView>
-    </ThemedView>
+          
+          <TouchableOpacity 
+            style={styles.signupButton}
+            onPress={handleSignUp}
+          >
+            <ThemedText style={styles.signupButtonText}>Sign up</ThemedText>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.emailButton}
+            onPress={handleEmailSignIn}
+          >
+            <ThemedText style={styles.emailButtonText}>Sign in with an email</ThemedText>
+          </TouchableOpacity>
+        </View>
+
+        {error ? <ThemedText style={styles.error}>{error}</ThemedText> : null}
+      </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
+    backgroundColor: '#121712', // Dark background from Figma design
+  },
+  backgroundImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  headerContainer: {
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  appTitle: {
+    fontFamily: 'ManropeBold',
+    fontSize: 18,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  titleContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 12,
+  },
+  title: {
+    fontFamily: 'ManropeBold',
+    fontSize: 28,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },  buttonContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  loginButton: {
+    backgroundColor: '#4FD12B', // Green button from Figma
+    height: 56,
+    borderRadius: 24,
     justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  loginButtonText: {
+    fontFamily: 'ManropeBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  signupButton: {
+    backgroundColor: '#2E3829', // Dark button from Figma
+    height: 56,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  signupButtonText: {
+    fontFamily: 'ManropeBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  emailButton: {
+    backgroundColor: '#2E3829', // Dark button from Figma
+    height: 56,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  emailButtonText: {
+    fontFamily: 'ManropeBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  error: {
+    color: '#FF5252',
+    textAlign: 'center',
+    marginTop: 10,
   },
   logo: {
     width: 120,
