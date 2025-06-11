@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the database schema for Splitwiser, a modern expense splitting application using MongoDB. The schema is designed to support core functionalities including user management, group-based expense tracking, flexible expense splitting, and settlement management.
+This document outlines the database schema for Splitwiser, a modern expense splitting application using MongoDB. The schema is designed to support core functionalities including user management, group-based expense tracking, flexible expense splitting, and settlement management. It serves as the data persistence layer for services like the [User Service](./user-service.md), [Group Service](./group-service.md), and [Expense Service](./expense-service.md).
 
 ## Key Design Principles
 
@@ -111,7 +111,9 @@ expenses ||--o{ settlements : generates
 
 ## Collection Definitions
 
-### 1. users Collection
+### 1. `users` Collection
+
+**Related Service:** [User Service](./user-service.md#api-endpoints), [Auth Service](./auth-service.md#api-endpoints)
 
 The `users` collection stores all user account information and authentication data.
 
@@ -144,7 +146,9 @@ db.users.createIndex({ email: 1 }, { unique: true })
 db.users.createIndex({ createdAt: 1 })
 ```
 
-### 2. groups Collection
+### 2. `groups` Collection
+
+**Related Service:** [Group Service](./group-service.md#api-endpoints)
 
 The `groups` collection represents expense sharing groups with embedded member information.
 
@@ -184,7 +188,9 @@ db.groups.createIndex({ "members.userId": 1 })
 db.groups.createIndex({ createdAt: 1 })
 ```
 
-### 3. expenses Collection
+### 3. `expenses` Collection
+
+**Related Service:** [Expense Service](./expense-service.md#1-expense-crud-operations)
 
 Core collection storing all expense information with embedded splits, comments, and history.
 
@@ -252,7 +258,9 @@ db.expenses.createIndex({ tags: 1 })
 db.expenses.createIndex({ createdAt: -1 })
 ```
 
-### 4. settlements Collection
+### 4. `settlements` Collection
+
+**Related Service:** [Expense Service](./expense-service.md#2-settlement-management)
 
 Tracks debt settlements between users, can be used for both calculated debts and actual payments.
 

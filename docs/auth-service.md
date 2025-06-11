@@ -1,5 +1,18 @@
 # Auth Service Design for Splitwiser App
 
+## API Endpoint Summary
+
+| Method | Endpoint                                  | Description                             |
+|--------|-------------------------------------------|-----------------------------------------|
+| POST   | [`/auth/signup/email`](#1-emailpassword-sign-up--sign-in) | Register a new user with email+password |
+| POST   | [`/auth/login/email`](#1-emailpassword-sign-up--sign-in)  | Login with email+password               |
+| POST   | [`/auth/login/google`](#3-google-sign-in-via-firebase)    | Login / signup via Google OAuth token   |
+| POST   | [`/auth/refresh`](#2-token-storage--rotation)           | Refresh JWT when access token expires   |
+| POST   | `/auth/password/reset/request`            | Send password-reset email link          |
+| POST   | `/auth/password/reset/confirm`            | Set new password via reset token        |
+
+*Refer to the [Micro-Level API Specification](./micro-plan.md#1-authentication-service) for more details on password reset endpoints.*
+
 ## 1. Email/Password Sign-Up & Sign-In
 
 1. **Sign-Up**
@@ -17,7 +30,7 @@
    * **Server**:
 
      1. Hash the password (e.g. using bcrypt).
-     2. Create a new User document in MongoDB with `hashed_password`, email, name, etc.
+     2. Create a new User document in MongoDB (see [`users` collection schema](../nonrelational-database-schema.md#1-users-collection)) with `hashed_password`, email, name, etc.
      3. (Optionally) create & store a **refresh token** record in a `refresh_tokens` collection, tied to the user and device/browser.
      4. Generate a short-lived **Access Token** (JWT, e.g. 15 min) and a longer-lived **Refresh Token** (e.g. 30 days).
    * **Response**:
@@ -118,7 +131,7 @@
 
      1. Verify `id_token` with the Firebase Admin SDK (or by calling Google’s tokeninfo endpoint).
      2. Extract `uid`, email, name, picture.
-     3. Look up or **auto-provision** a User in your MongoDB.
+     3. Look up or **auto-provision** a User in your MongoDB ([`users` collection](../nonrelational-database-schema.md#1-users-collection)).
      4. Issue your own Access + Refresh tokens (just like email/password flow), and store the Refresh token record.
    * **Response**:
 
@@ -170,6 +183,6 @@
 * **Token Rotation & Auto-Refresh** means users rarely see login screens once they’ve signed in.
 * **SecureStore / HttpOnly Cookies** keep tokens safe from attackers.
 * **Centralized Refresh-Token Store** on the server lets you revoke stolen tokens instantly (e.g. via an “Active Sessions” screen).
-* **Single Codepath** for both Email/Password and Google Sign-In after the initial identity check (you end up issuing your own tokens in both cases).
+* **Single Codepath** for both Email/Password and Google Sign-In after the initial identity check (you end up issuing your own tokens in both cases, interacting with the [User Service](./user-service.md) for profile data).
 
 

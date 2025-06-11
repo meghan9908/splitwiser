@@ -1,6 +1,23 @@
 # Group Service API Documentation
 # =========================
 
+## API Endpoint Summary
+
+| Method | Path                                     | Description                         |
+| :----: | ---------------------------------------- | ----------------------------------- |
+|  POST  | [`/groups`](#1-create-a-new-group)                                | Create group                        |
+|   GET  | [`/groups`](#4-crud-endpoints-recap)                                | List groups current user belongs to |
+|   GET  | [`/groups/{group_id}`](#4-crud-endpoints-recap)                     | Get group details (incl. members)   |
+|  PATCH | [`/groups/{group_id}`](#4-crud-endpoints-recap)                     | Update group metadata               |
+| DELETE | [`/groups/{group_id}`](#4-crud-endpoints-recap)                     | Delete group (admin only)           |
+|  POST  | [`/groups/join`](#2-invite--join-by-code-or-qrurl)                           | Join by `joinCode`                  |
+|  POST  | [`/groups/{group_id}/leave`](#3-prevent-leaving-before-settlement)               | Leave group (if settled)            |
+|   GET  | [`/groups/{group_id}/members`](#4-crud-endpoints-recap)             | List members                        |
+|  PATCH | [`/groups/{group_id}/members/{member_id}`](#4-crud-endpoints-recap) | Change role (admin/member)          |
+| DELETE | [`/groups/{group_id}/members/{member_id}`](#4-crud-endpoints-recap) | Remove a member (admin only)        |
+
+*All endpoints require `Authorization` via [Auth Service](./auth-service.md). Group data is stored as per the [`groups` collection schema](../nonrelational-database-schema.md#2-groups-collection).*
+
 ## 1. Create a New Group
 
 1. **Client**
@@ -24,7 +41,7 @@
 3. **Server**
 
    * Generates a new `group_id`
-   * Persists document in MongoDB (`groups` collection)
+   * Persists document in MongoDB ([`groups` collection](../nonrelational-database-schema.md#2-groups-collection))
    * Generates a **joinCode** (e.g. short, 6-char alphanumeric) mapped to `group_id`
    * Responds with full group object
 
@@ -55,7 +72,7 @@
 actor User
 participant App as "React/Expo UI"
 participant API as "FastAPI /groups"
-participant DB as "MongoDB"
+participant DB as "MongoDB ([groups collection](../nonrelational-database-schema.md#2-groups-collection))"
 
 User -> App: Tap “Create Group” + Name
 App -> API: POST /groups {name, currency}
@@ -93,7 +110,7 @@ App --> User: Show “Group created” + navigate in
 
 3. **Server**
 
-   * Looks up the `groups` collection for `joinCode = "XZ4P7Q"`
+   * Looks up the [`groups` collection](../nonrelational-database-schema.md#2-groups-collection) for `joinCode = "XZ4P7Q"`
    * If found & user not already a member:
 
      * Add a new `member` sub-doc in the group: `{ userId, role: "member", joinedAt }`
@@ -121,7 +138,7 @@ App --> User: Show “Group created” + navigate in
 actor User
 participant App as "React/Expo UI"
 participant API as "FastAPI /groups/join"
-participant DB as "MongoDB"
+participant DB as "MongoDB ([groups collection](../nonrelational-database-schema.md#2-groups-collection))"
 
 User -> App: Enter joinCode "XZ4P7Q"
 App -> API: POST /groups/join {joinCode}
@@ -149,8 +166,8 @@ App --> User: Show group details
 
   1. Before removing the user from `group.members`, run a check against:
 
-     * Outstanding balances (`/groups/{group_id}/analytics/summary?userId=<me>`)
-     * Active unsettled expenses or settlements
+     * Outstanding balances (e.g., by calling a relevant endpoint in the [Expense Service](./expense-service.md))
+     * Active unsettled expenses or settlements (referencing the [`settlements` collection](../nonrelational-database-schema.md#4-settlements-collection) via the [Expense Service](./expense-service.md))
   2. If **zero** balance: remove member and return `200`.
   3. If **non-zero**: return `400 Bad Request` with:
 
@@ -175,4 +192,5 @@ App --> User: Show group details
 |  PATCH | `/groups/{group_id}/members/{member_id}` | Change role (admin/member)          |
 | DELETE | `/groups/{group_id}/members/{member_id}` | Remove a member (admin only)        |
 
-*All require `Authorization: Bearer <token>`.*
+*All require `Authorization: Bearer <token>` (managed by [Auth Service](./auth-service.md)).*
+*Interactions with expenses and settlements are handled by the [Expense Service](./expense-service.md).*

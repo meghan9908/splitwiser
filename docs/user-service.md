@@ -2,7 +2,15 @@
 
 ## Overview
 
-The User Service is responsible for managing user-specific data within the Splitwiser application. This includes retrieving user profiles, updating preferences, and handling account deletion. It works in conjunction with the Auth Service, which manages authentication and identity.
+The User Service is responsible for managing user-specific data within the Splitwiser application. This includes retrieving user profiles, updating preferences, and handling account deletion. It works in conjunction with the [Auth Service](./auth-service.md), which manages authentication and identity.
+
+## API Endpoint Summary
+
+| Method | Endpoint         | Description                          |
+|--------|------------------|--------------------------------------|
+| GET    | [`/users/me`](#1-get-current-user-profile)      | Get current user profile             |
+| PATCH  | [`/users/me`](#2-update-user-profile--preferences) | Update profile & preferences         |
+| DELETE | [`/users/me`](#3-delete-own-account)        | Delete own account                   |
 
 ## Key Features
 
@@ -46,7 +54,7 @@ participant App as "Client App"
 participant API_Gateway as "API Gateway"
 participant UserService as "User Service (FastAPI)"
 participant AuthMiddleware as "Auth Middleware"
-participant DB as "MongoDB (users collection)"
+participant DB as "MongoDB ([users collection](../nonrelational-database-schema.md#1-users-collection))"
 
 User -> App: Request Profile
 App -> API_Gateway: GET /users/me (Authorization: Bearer token)
@@ -103,7 +111,7 @@ participant App as "Client App"
 participant API_Gateway as "API Gateway"
 participant UserService as "User Service (FastAPI)"
 participant AuthMiddleware as "Auth Middleware"
-participant DB as "MongoDB (users collection)"
+participant DB as "MongoDB ([users collection](../nonrelational-database-schema.md#1-users-collection))"
 
 User -> App: Edit Profile (name, imageUrl, currency)
 App -> API_Gateway: PATCH /users/me (Authorization: Bearer token, body: {updates})
@@ -149,8 +157,8 @@ participant App as "Client App"
 participant API_Gateway as "API Gateway"
 participant UserService as "User Service (FastAPI)"
 participant AuthMiddleware as "Auth Middleware"
-participant DB as "MongoDB (users collection)"
-participant OtherServices as "Group/Expense Services"
+participant DB as "MongoDB ([users collection](../nonrelational-database-schema.md#1-users-collection))"
+participant OtherServices as "[Group](./group-service.md)/[Expense](./expense-service.md) Services"
 
 User -> App: Request Account Deletion
 App -> App: Show Confirmation Dialog
@@ -171,9 +179,9 @@ App --> User: Show "Account Deleted" + Logout
 
 ## Data Models Alignment
 
-The User Service primarily interacts with the `users` collection in MongoDB.
+The User Service primarily interacts with the [`users` collection](../nonrelational-database-schema.md#1-users-collection) in MongoDB.
 
-**`users` Collection (from `nonrelational-database-schema.md`):**
+**[`users` Collection (from `nonrelational-database-schema.md`](../nonrelational-database-schema.md#1-users-collection)):**
 ```javascript
 {
   _id: ObjectId,
@@ -189,7 +197,7 @@ The User Service primarily interacts with the `users` collection in MongoDB.
 
 - `GET /users/me` reads from this collection, omitting `passwordHash`.
 - `PATCH /users/me` updates permissible fields (`name`, `imageUrl`, `currency`) and `updatedAt`.
-- `DELETE /users/me` marks the document for deletion or removes it, potentially triggering actions on related data.
+- `DELETE /users/me` marks the document for deletion or removes it, potentially triggering actions on related data from other services like [Group Service](./group-service.md) or [Expense Service](./expense-service.md).
 
 ## Error Handling
 

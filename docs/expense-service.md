@@ -1,8 +1,24 @@
 # Expense Service API Documentation
 
+## API Endpoint Summary
+
+| Method | Endpoint                                        | Description                                                                 |
+|--------|-------------------------------------------------|-----------------------------------------------------------------------------|
+| POST   | [/groups/{group_id}/expenses](#create-expense)  | Creates a new expense within a group and calculates initial settlements.    |
+| GET    | [/groups/{group_id}/expenses](#list-group-expenses) | Lists all expenses for a group with pagination and filtering.             |
+| GET    | [/groups/{group_id}/expenses/{expense_id}](#get-single-expense) | Retrieves details for a single expense, including comments and history.   |
+| PATCH  | [/groups/{group_id}/expenses/{expense_id}](#update-expense) | Updates an existing expense and recalculates settlements.                 |
+| DELETE | [/groups/{group_id}/expenses/{expense_id}](#delete-expense) | Deletes an expense and adjusts settlements accordingly.                   |
+| GET    | [/groups/{group_id}/settlements](#get-group-settlements) | Retrieves pending and optimized settlements for a group.                  |
+| PATCH  | [/groups/{group_id}/settlements/{settlement_id}](#mark-settlement-as-paid) | Marks a settlement as paid.                                               |
+| POST   | [/groups/{group_id}/settlements/optimize](#calculate-optimized-settlements) | Calculates and returns optimized (simplified) settlements for a group.    |
+| GET    | [/users/me/friends-balance](#get-cross-group-friend-balances) | Retrieves the current user's aggregated balances with all friends across groups. |
+| GET    | [/groups/{group_id}/users/{user_id}/balance](#get-user-balance-in-specific-group) | Gets a specific user's balance within a particular group.               |
+| GET    | [/groups/{group_id}/analytics](#group-expense-analytics) | Provides expense analytics for a group over a specified period.         |
+
 ## Overview
 
-The Expense Service manages expense creation, splitting, and settlement calculations for Splitwiser. It handles the core business logic of expense tracking and debt settlement optimization using a directed graph algorithm.
+The Expense Service, a core component detailed in the [Micro-plan](./micro-plan.md#4-expense-management-service) and [Settlement Service section](./micro-plan.md#5-settlement-service), manages expense creation, splitting, and settlement calculations for Splitwiser. It handles the core business logic of expense tracking and debt settlement optimization using a directed graph algorithm. This service interacts closely with the [Group Service](./group-service.md) for managing expenses within groups and relies on the [Auth Service](./auth-service.md) for user authentication and authorization. The underlying data structures are defined in the [Non-Relational Database Schema](./nonrelational-database-schema.md).
 
 ## Key Features
 
@@ -543,15 +559,15 @@ API -> Client: Return friends balance summary
 
 ## Data Models Alignment
 
-Based on the MongoDB schema, here's how the API maps to collections:
+Based on the [Non-Relational Database Schema](./nonrelational-database-schema.md), here's how the API maps to collections:
 
 ### Expense Creation Flow:
-1. **Insert into `expenses` collection**: Main expense document with embedded splits
-2. **Insert into `settlements` collection**: Individual settlement records for debt tracking
-3. **Update group statistics**: Cached aggregations for performance
+1. **Insert into [`expenses` collection](./nonrelational-database-schema.md#3-expenses-collection)**: Main expense document with embedded splits
+2. **Insert into [`settlements` collection](./nonrelational-database-schema.md#4-settlements-collection)**: Individual settlement records for debt tracking
+3. **Update group statistics**: Cached aggregations for performance (potentially in [`groups` collection](./nonrelational-database-schema.md#2-groups-collection) or a dedicated analytics store)
 
 ### Settlement Optimization:
-1. **Query `settlements` by groupId**: Get all pending settlements
+1. **Query [`settlements` collection](./nonrelational-database-schema.md#4-settlements-collection) by groupId**: Get all pending settlements
 2. **Calculate net balances**: Aggregate by user pairs
 3. **Apply graph algorithm**: Minimize transaction count
 4. **Return optimized structure**: Suggested payments
