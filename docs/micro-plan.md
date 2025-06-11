@@ -83,6 +83,15 @@ All “auth” endpoints return standard HTTP 4xx on error and 200 + JSON on suc
 
 ---
 
+## 6. Friends Balance Aggregation Service
+
+| Method | Path                        | Description                                    | Request Body | Response Body                                             |
+| :----: | --------------------------- | ---------------------------------------------- | ------------ | --------------------------------------------------------- |
+|   GET  | `/users/me/friends-balance` | Cross-group balance summary for all friends    | –            | `{ friendsBalance: […], summary: {…} }`                   |
+|   GET  | `/users/me/balance-summary` | Current user's total balance across all groups | –            | `{ totalOwedToYou, totalYouOwe, netBalance, groups: […] }` |
+
+---
+
 ## 7. Notifications (Nice-to-Have)
 
 | Method | Path                        | Description            | Request Body        | Response Body            |
@@ -93,10 +102,12 @@ All “auth” endpoints return standard HTTP 4xx on error and 200 + JSON on suc
 
 ---
 
-## 8. Analytics (Phase 2+)
+## 8. Enhanced Analytics Service  
 
-| Method | Path                                   | Description                         | Request Body             | Response Body                          |
-| :----: | -------------------------------------- | ----------------------------------- | ------------------------ | -------------------------------------- |
+| Method | Path                                | Description                        | Request Body | Response Body                                                |
+| :----: | ----------------------------------- | ---------------------------------- | ------------ | ------------------------------------------------------------ |
+|   GET  | `/groups/{group_id}/analytics`      | Group expense analytics & trends   | Query: `?period&year&month`      | `{ analytics: {…}, expenseTrends: […], memberContributions: […] }` |
+|   GET  | `/users/me/analytics`               | Personal expense analytics         | Query: `?period&year&month`      | `{ personalStats: {…}, groupBreakdown: […] }`               |
 |   GET  | `/groups/{group_id}/analytics/summary` | Total spent per user, per-category  | `?from&to`               | `{ per_user: […], per_category: […] }` |
 |   GET  | `/groups/{group_id}/analytics/trends`  | Time-series of balances & spendings | `?interval=daily/weekly` | `{ timeline: […dates & values] }`      |
 
@@ -116,4 +127,6 @@ All “auth” endpoints return standard HTTP 4xx on error and 200 + JSON on suc
 * **Payload schemas** defined via Pydantic for request validation & auto-docs.
 * **File uploads**: use multipart/form-data + S3- or GridFS-backed storage.
 * **Rate-limit** expensive ops (graph simplification) or offload to background worker (e.g. Celery/RQ).
+* **Settlement Algorithm**: Implement directed graph optimization for debt minimization
+* **Friends Balance**: Cross-group aggregation with real-time balance updates
 
