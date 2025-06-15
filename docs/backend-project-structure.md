@@ -1,4 +1,3 @@
-\
 # Backend Project Structure (Monolithic)
 
 ## Overview
