@@ -4,17 +4,23 @@
 
 | Method | Endpoint                                        | Description                                                                 |
 |--------|-------------------------------------------------|-----------------------------------------------------------------------------|
-| POST   | [/groups/{group_id}/expenses](#create-expense)  | Creates a new expense within a group and calculates initial settlements.    |
-| GET    | [/groups/{group_id}/expenses](#list-group-expenses) | Lists all expenses for a group with pagination and filtering.             |
-| GET    | [/groups/{group_id}/expenses/{expense_id}](#get-single-expense) | Retrieves details for a single expense, including comments and history.   |
-| PATCH  | [/groups/{group_id}/expenses/{expense_id}](#update-expense) | Updates an existing expense and recalculates settlements.                 |
-| DELETE | [/groups/{group_id}/expenses/{expense_id}](#delete-expense) | Deletes an expense and adjusts settlements accordingly.                   |
+| POST   | [/groups/{group_id}/expenses](#create-expense)  | Creates a new expense within a group.                                       |
+| GET    | [/groups/{group_id}/expenses](#list-group-expenses) | Lists all expenses for a group.                                             |
+| GET    | [/groups/{group_id}/expenses/{expense_id}](#get-single-expense) | Retrieves details for a single expense.                                     |
+| PATCH  | [/groups/{group_id}/expenses/{expense_id}](#update-expense) | Updates an existing expense.                                                |
+| DELETE | [/groups/{group_id}/expenses/{expense_id}](#delete-expense) | Deletes an expense.                                                         |
+| POST   | [/groups/{group_id}/expenses/{expense_id}/attachments](#upload-attachment-for-an-expense) | Upload attachment for an expense.                                           |
+| GET    | [/groups/{group_id}/expenses/{expense_id}/attachments/{key}](#getdownload-an-attachment) | Get/download an attachment.                                                 |
+| POST   | [/groups/{group_id}/settlements](#manually-record-payment)             | Manually record a payment settlement between users in a group.              |
 | GET    | [/groups/{group_id}/settlements](#get-group-settlements) | Retrieves pending and optimized settlements for a group.                  |
+| GET    | [/groups/{group_id}/settlements/{settlement_id}](#get-single-settlement) | Retrieves details for a single settlement.                                |
 | PATCH  | [/groups/{group_id}/settlements/{settlement_id}](#mark-settlement-as-paid) | Marks a settlement as paid.                                               |
+| DELETE | [/groups/{group_id}/settlements/{settlement_id}](#deleteundo-settlement) | Deletes/undoes a recorded settlement.                                       |
 | POST   | [/groups/{group_id}/settlements/optimize](#calculate-optimized-settlements) | Calculates and returns optimized (simplified) settlements for a group.    |
-| GET    | [/users/me/friends-balance](#get-cross-group-friend-balances) | Retrieves the current user's aggregated balances with all friends across groups. |
+| GET    | [/users/me/friends-balance](#get-cross-group-friend-balances) | Retrieves the current user's aggregated balances with all friends.        |
+| GET    | [/users/me/balance-summary](#get-overall-user-balance-summary) | Retrieves an overall balance summary for the current user.                  |
 | GET    | [/groups/{group_id}/users/{user_id}/balance](#get-user-balance-in-specific-group) | Gets a specific user's balance within a particular group.               |
-| GET    | [/groups/{group_id}/analytics](#group-expense-analytics) | Provides expense analytics for a group over a specified period.         |
+| GET    | [/groups/{group_id}/analytics](#group-expense-analytics) | Provides expense analytics for a group.                                     |
 
 ## Overview
 
@@ -266,7 +272,82 @@ DELETE /groups/{group_id}/expenses/{expense_id}
 Authorization: Bearer <access_token>
 ```
 
+**Response (200 OK):**
+```json
+{
+  "success": true
+}
+```
+
+### Attachment Handling
+
+Endpoints for managing expense attachments (e.g., receipts).
+
+#### Upload Attachment for an Expense
+
+```http
+POST /groups/{group_id}/expenses/{expense_id}/attachments
+Authorization: Bearer <access_token>
+Content-Type: multipart/form-data
+
+<File Data>
+```
+
+**Response (201 Created):**
+```json
+{
+  "attachment_key": "unique_attachment_key_string",
+  "url": "https://storage.example.com/attachments/unique_attachment_key_string.jpg"
+}
+```
+
+#### Get/Download an Attachment
+
+```http
+GET /groups/{group_id}/expenses/{expense_id}/attachments/{key}
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+
+Returns the file stream.
+
 ### 2. Settlement Management
+
+#### Manually Record Payment
+
+Allows users to manually record a payment made outside the system or a direct settlement.
+
+```http
+POST /groups/{group_id}/settlements
+Authorization: Bearer <access_token>
+Content-Type: application/json
+
+{
+  "payer_id": "user_who_paid_id",
+  "payee_id": "user_who_received_id",
+  "amount": 25.50,
+  "description": "Settled for lunch last week",
+  "paidAt": "2024-01-17T14:00:00Z"
+}
+```
+
+**Response (201 Created):**
+```json
+{
+  "settlement": {
+    "id": "settlement_abc789",
+    "group_id": "group_xyz123",
+    "payer_id": "user_who_paid_id",
+    "payee_id": "user_who_received_id",
+    "amount": 25.50,
+    "status": "completed", // Or "pending_confirmation" if an approval flow is added
+    "description": "Settled for lunch last week",
+    "paidAt": "2024-01-17T14:00:00Z",
+    "recordedAt": "2024-01-17T14:05:00Z"
+  }
+}
+```
 
 #### Get Group Settlements
 
@@ -309,6 +390,39 @@ Authorization: Bearer <access_token>
     "totalPending": 750.00,
     "transactionCount": 15,
     "optimizedCount": 3
+  },
+  "pagination": {
+    "currentPage": 1,
+    "totalPages": 3,
+    "totalItems": 75,
+    "limit": 25
+  }
+}
+```
+
+#### Get Single Settlement
+
+Retrieves details for a specific settlement record.
+
+```http
+GET /groups/{group_id}/settlements/{settlement_id}
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "settlement": {
+    "id": "settlement_abc789",
+    "group_id": "group_xyz123",
+    "payer_id": "user_who_paid_id",
+    "payee_id": "user_who_received_id",
+    "amount": 25.50,
+    "status": "completed",
+    "description": "Settled for lunch last week",
+    "paidAt": "2024-01-17T14:00:00Z",
+    "recordedAt": "2024-01-17T14:05:00Z",
+    "related_expense_id": "exp_def456" // Optional, if linked to an expense
   }
 }
 ```
@@ -323,6 +437,34 @@ Content-Type: application/json
 {
   "status": "completed",
   "paidAt": "2024-01-16T10:30:00Z"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "settlement": {
+    // ... updated settlement object ...
+    "status": "completed",
+    "paidAt": "2024-01-16T10:30:00Z"
+  }
+}
+```
+
+#### Delete/Undo Settlement
+
+Removes or marks a settlement as void. Useful for correcting mistakes.
+
+```http
+DELETE /groups/{group_id}/settlements/{settlement_id}
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Settlement record deleted successfully."
 }
 ```
 
@@ -428,6 +570,37 @@ Authorization: Bearer <access_token>
     "friendCount": 3,
     "activeGroups": 2
   }
+}
+```
+
+#### Get Overall User Balance Summary
+
+Retrieves an overall financial summary for the currently authenticated user across all their activities.
+
+```http
+GET /users/me/balance-summary
+Authorization: Bearer <access_token>
+```
+
+**Response (200 OK):**
+```json
+{
+  "totalOwedToYou": 120.50,
+  "totalYouOwe": 75.25,
+  "netBalance": 45.25, // Positive: net amount others owe to user
+  "currency": "USD", // Assuming a primary currency or conversion for summary
+  "groupsSummary": [
+    {
+      "group_id": "group_abc123",
+      "group_name": "Weekend Trip",
+      "yourBalanceInGroup": 20.00 // Positive: you are owed in this group
+    },
+    {
+      "group_id": "group_def456",
+      "group_name": "Monthly Bills",
+      "yourBalanceInGroup": -15.50 // Negative: you owe in this group
+    }
+  ]
 }
 ```
 

@@ -33,15 +33,13 @@ Retrieves the profile information for the currently authenticated user.
 
 ```json
 {
-  "user": {
-    "_id": "507f191e810c19729de860ea",
-    "name": "John Doe",
-    "email": "john.doe@example.com",
-    "imageUrl": "https://example.com/profiles/john.doe.jpg",
-    "currency": "USD",
-    "createdAt": "2024-01-10T10:00:00Z",
-    "updatedAt": "2024-06-01T14:30:00Z"
-  }
+  "id": "usr_123abc",
+  "name": "Jane Doe",
+  "email": "jane.doe@example.com",
+  "image_url": "https://example.com/profile.jpg",
+  "currency": "USD",
+  "created_at": "2024-01-15T10:00:00Z",
+  "updatedAt": "2024-01-16T12:30:00Z"
 }
 ```
 
@@ -62,9 +60,9 @@ API_Gateway -> AuthMiddleware: Verify token
 AuthMiddleware --> API_Gateway: Token valid, user_id extracted
 API_Gateway -> UserService: GET /users/me (user_id)
 UserService -> DB: findUserById(user_id)
-DB --> UserService: User document
-UserService --> API_Gateway: { user: { ... } }
-API_Gateway --> App: 200 OK { user: { ... } }
+DB --> UserService: User document (e.g., id, name, email)
+UserService --> API_Gateway: { id: "...", name: "...", email: "...", ... }
+API_Gateway --> App: 200 OK { id: "...", name: "...", email: "...", ... }
 App --> User: Display Profile
 @enduml
 ```
