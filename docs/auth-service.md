@@ -10,6 +10,7 @@
 | POST   | [`/auth/refresh`](#2-token-storage--rotation)           | Refresh JWT when access token expires   |
 | POST   | `/auth/password/reset/request`            | Send password-reset email link          |
 | POST   | `/auth/password/reset/confirm`            | Set new password via reset token        |
+| POST   | [`/auth/token/verify`](#4-access-token-verification-auto-login)                | Verify access token and auto-login      |
 
 *Refer to the [Micro-Level API Specification](./micro-plan.md#1-authentication-service) for more details on password reset endpoints.*
 
@@ -151,7 +152,41 @@
 
 ---
 
-## 4. Client-Side Persistence & UX
+## 4. Access Token Verification (Auto-Login)
+
+This endpoint allows the client application to verify an existing access token, typically on application startup, to automatically log the user in without requiring credentials.
+
+*   **Request**:
+    ```json
+    POST /auth/token/verify
+    {
+      "access_token": "..."
+    }
+    ```
+*   **Server**:
+    1.  Validate the provided `access_token` (check signature, expiry, etc.).
+    2.  If the token is valid, retrieve the associated user details.
+    3.  If the token is invalid or expired, return an appropriate error (e.g., 401 Unauthorized).
+*   **Response (Success)**:
+    ```json
+    200 OK
+    {
+      "user": { "id": "...", "email": "...", "name": "..." }
+    }
+    ```
+*   **Response (Failure)**:
+    ```json
+    401 Unauthorized
+    {
+      "error": "Invalid or expired token"
+    }
+    ```
+
+This endpoint helps in providing a seamless login experience if a valid session token is already present on the client. If this verification fails, the client should then attempt to use the refresh token via the [`/auth/refresh`](#2-token-storage--rotation) endpoint or prompt the user for a full login.
+
+---
+
+## 5. Client-Side Persistence & UX
 
 * **On App Launch**
 

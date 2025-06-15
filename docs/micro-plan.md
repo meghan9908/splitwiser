@@ -12,6 +12,7 @@
 |  POST  | [`/auth/refresh`](./auth-service.md#refresh-jwt-access-token)                | Refresh JWT when access token expires   | `{ refresh_token }`             | `{ access_token, refresh_token }`       |
 |  POST  | [`/auth/password/reset/request`](./auth-service.md#request-password-reset) | Send password-reset email link          | `{ email }`                     | `{ success: true }`                     |
 |  POST  | [`/auth/password/reset/confirm`](./auth-service.md#confirm-password-reset) | Set new password via reset token        | `{ reset_token, new_password }` | `{ success: true }`                     |
+|  POST  | [`/auth/token/verify`](./auth-service.md#4-access-token-verification-auto-login)                | Verify access token and auto-login      | `{ access_token }`              | `{ user }`                              |
 
 All “auth” endpoints return standard HTTP 4xx on error and 200 + JSON on success.
 
