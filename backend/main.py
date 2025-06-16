@@ -24,15 +24,26 @@ app.add_middleware(
 # Database events
 @app.on_event("startup")
 async def startup_event():
+    """
+    Initializes the MongoDB connection when the application starts.
+    """
     await connect_to_mongo()
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    """
+    Closes the MongoDB connection when the application shuts down.
+    """
     await close_mongo_connection()
 
 # Health check
 @app.get("/health")
 async def health_check():
+    """
+    Returns the health status of the Splitwiser API service.
+    
+    This endpoint can be used for health checks and monitoring.
+    """
     return {"status": "healthy", "service": "Splitwiser API"}
 
 # Include routers

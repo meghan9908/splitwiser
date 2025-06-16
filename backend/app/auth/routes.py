@@ -14,7 +14,18 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/signup/email", response_model=AuthResponse)
 async def signup_with_email(request: EmailSignupRequest):
-    """Register a new user with email and password"""
+    """
+    Registers a new user using email, password, and name, and returns authentication tokens and user information.
+    
+    Args:
+        request: Contains the user's email, password, and name for registration.
+    
+    Returns:
+        An AuthResponse with access token, refresh token, and user details.
+    
+    Raises:
+        HTTPException: If registration fails or an unexpected error occurs.
+    """
     try:
         result = await auth_service.create_user_with_email(
             email=request.email,
@@ -46,7 +57,11 @@ async def signup_with_email(request: EmailSignupRequest):
 
 @router.post("/login/email", response_model=AuthResponse)
 async def login_with_email(request: EmailLoginRequest):
-    """Login with email and password"""
+    """
+    Authenticates a user using email and password credentials.
+    
+    On successful authentication, returns an access token, refresh token, and user information. Raises an HTTP 500 error if authentication fails due to an unexpected error.
+    """
     try:
         result = await auth_service.authenticate_user_with_email(
             email=request.email,
@@ -77,7 +92,11 @@ async def login_with_email(request: EmailLoginRequest):
 
 @router.post("/login/google", response_model=AuthResponse)
 async def login_with_google(request: GoogleLoginRequest):
-    """Login or signup via Google OAuth token"""
+    """
+    Authenticates or registers a user using a Google OAuth ID token.
+    
+    On success, returns an access token, refresh token, and user information. Raises an HTTP 500 error if Google authentication fails.
+    """
     try:
         result = await auth_service.authenticate_with_google(request.id_token)
         
@@ -105,7 +124,14 @@ async def login_with_google(request: GoogleLoginRequest):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(request: RefreshTokenRequest):
-    """Refresh JWT when access token expires"""
+    """
+    Refreshes JWT tokens using a valid refresh token.
+    
+    Validates the provided refresh token, issues a new access token and refresh token if valid, and returns them. Raises a 401 error if the refresh token is invalid or revoked.
+    	
+    Returns:
+    	A TokenResponse containing the new access and refresh tokens.
+    """
     try:
         new_refresh_token = await auth_service.refresh_access_token(request.refresh_token)
         
@@ -143,7 +169,12 @@ async def refresh_token(request: RefreshTokenRequest):
 
 @router.post("/token/verify", response_model=UserResponse)
 async def verify_token(request: TokenVerifyRequest):
-    """Verify access token and auto-login"""
+    """
+    Verifies an access token and returns the associated user information.
+    
+    Raises:
+        HTTPException: If the token is invalid or expired, returns a 401 Unauthorized error.
+    """
     try:
         user = await auth_service.verify_access_token(request.access_token)
         
@@ -161,7 +192,12 @@ async def verify_token(request: TokenVerifyRequest):
 
 @router.post("/password/reset/request", response_model=SuccessResponse)
 async def request_password_reset(request: PasswordResetRequest):
-    """Send password-reset email link"""
+    """
+    Initiates a password reset process by sending a reset link to the provided email address.
+    
+    Returns:
+        SuccessResponse: Indicates whether the password reset email was sent if the email exists.
+    """
     try:
         await auth_service.request_password_reset(request.email)
         return SuccessResponse(
@@ -176,7 +212,18 @@ async def request_password_reset(request: PasswordResetRequest):
 
 @router.post("/password/reset/confirm", response_model=SuccessResponse)
 async def confirm_password_reset(request: PasswordResetConfirm):
-    """Set new password via reset token"""
+    """
+    Resets a user's password using a valid password reset token.
+    
+    Args:
+        request: Contains the password reset token and the new password.
+    
+    Returns:
+        SuccessResponse indicating the password has been reset successfully.
+    
+    Raises:
+        HTTPException: If the reset token is invalid or an error occurs during the reset process.
+    """
     try:
         await auth_service.confirm_password_reset(
             reset_token=request.reset_token,

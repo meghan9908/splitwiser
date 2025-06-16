@@ -14,15 +14,43 @@ except Exception:
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against its hash"""
+    """
+    Verifies whether a plaintext password matches a given hashed password.
+    
+    Args:
+        plain_password: The plaintext password to verify.
+        hashed_password: The hashed password to compare against.
+    
+    Returns:
+        True if the plaintext password matches the hash, otherwise False.
+    """
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password: str) -> str:
-    """Hash a password"""
+    """
+    Hashes a plaintext password using bcrypt.
+    
+    Args:
+        password: The plaintext password to hash.
+    
+    Returns:
+        The bcrypt-hashed password as a string.
+    """
     return pwd_context.hash(password)
 
 def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-    """Create JWT access token"""
+    """
+    Creates a JWT access token embedding the provided data and an expiration time.
+    
+    If `expires_delta` is not specified, the token expires after the default duration from settings. The payload includes an expiration timestamp and a type field set to "access". The token is signed using the configured secret key and algorithm.
+    
+    Args:
+        data: The payload to include in the token.
+        expires_delta: Optional timedelta specifying how long the token is valid.
+    
+    Returns:
+        A signed JWT access token as a string.
+    """
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -34,11 +62,21 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
     return encoded_jwt
 
 def create_refresh_token() -> str:
-    """Create a secure refresh token"""
+    """
+    Generates a secure random refresh token as a URL-safe string.
+    
+    Returns:
+        A cryptographically secure, URL-safe refresh token string.
+    """
     return secrets.token_urlsafe(32)
 
 def verify_token(token: str) -> Dict[str, Any]:
-    """Verify and decode JWT token"""
+    """
+    Verifies and decodes a JWT token.
+    
+    If the token is invalid or cannot be verified, raises an HTTP 401 Unauthorized exception.
+    Returns the decoded token payload as a dictionary.
+    """
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         return payload
@@ -50,5 +88,10 @@ def verify_token(token: str) -> Dict[str, Any]:
         )
 
 def generate_reset_token() -> str:
-    """Generate password reset token"""
+    """
+    Generates a secure, URL-safe token for password reset operations.
+    
+    Returns:
+        A random 32-byte URL-safe string suitable for use as a password reset token.
+    """
     return secrets.token_urlsafe(32)
