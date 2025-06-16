@@ -4,7 +4,7 @@ nixPkgs = ["python312", "pip"]
 [phases.install]
 cmds = [
     "pip install --upgrade pip",
-    "pip install -r backend/requirements.txt"
+    "cd backend && pip install -r requirements.txt"
 ]
 
 [phases.build]
