@@ -23,7 +23,7 @@ if not firebase_admin._apps:
 
 class AuthService:
     def __init__(self):
-        Initializes the AuthService instance.
+        # Initializes the AuthService instance.
         pass
     
     def get_db(self):

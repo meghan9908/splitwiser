@@ -14,9 +14,11 @@ class Settings(BaseSettings):
       # Firebase
     firebase_project_id: str = ""
     firebase_service_account_path: str = "./firebase-service-account.json"
-    
-    # App
+      # App
     debug: bool = False
+    
+    # CORS
+    allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
     
     class Config:
         env_file = ".env"
