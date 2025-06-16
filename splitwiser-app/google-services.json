@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "323312632683",
+    "project_id": "splitwiser-25e34",
+    "storage_bucket": "splitwiser-25e34.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:323312632683:android:c355b2062f6ad1c3ce422e",
+        "android_client_info": {
+          "package_name": "splitwiser_1.android"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "323312632683-cgj2g17fgaucfclbsvm8gfgo3c2hohpf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB-_vWqWmdnJdG2fzJc5YASlm4CKLEFFL8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "323312632683-cgj2g17fgaucfclbsvm8gfgo3c2hohpf.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "323312632683-dqv5ag5l03ms82q0lqs94uecetfrshnf.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "splitwiser"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
