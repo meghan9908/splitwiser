@@ -10,16 +10,45 @@ import firebase_admin
 from firebase_admin import auth as firebase_auth, credentials
 from app.config import settings
 import os
+import json
 
 # Initialize Firebase Admin SDK
 if not firebase_admin._apps:
-    if os.path.exists(settings.firebase_service_account_path):
+    # First, check if we have credentials in environment variables
+    if all([
+        settings.firebase_type,
+        settings.firebase_project_id,
+        settings.firebase_private_key_id,
+        settings.firebase_private_key,
+        settings.firebase_client_email
+    ]):
+        # Create a credential dictionary from environment variables
+        cred_dict = {
+            "type": settings.firebase_type,
+            "project_id": settings.firebase_project_id,
+            "private_key_id": settings.firebase_private_key_id,
+            "private_key": settings.firebase_private_key.replace("\\n", "\n"),  # Replace escaped newlines
+            "client_email": settings.firebase_client_email,
+            "client_id": settings.firebase_client_id,
+            "auth_uri": settings.firebase_auth_uri,
+            "token_uri": settings.firebase_token_uri,
+            "auth_provider_x509_cert_url": settings.firebase_auth_provider_x509_cert_url,
+            "client_x509_cert_url": settings.firebase_client_x509_cert_url
+        }
+        cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(cred, {
+            'projectId': settings.firebase_project_id,
+        })
+        print("Firebase initialized with credentials from environment variables")
+    # Fall back to service account JSON file if env vars are not available
+    elif os.path.exists(settings.firebase_service_account_path):
         cred = credentials.Certificate(settings.firebase_service_account_path)
         firebase_admin.initialize_app(cred, {
             'projectId': settings.firebase_project_id,
         })
+        print("Firebase initialized with service account file")
     else:
-        print("Firebase service account file not found. Google auth will not work.")
+        print("Firebase service account not found. Google auth will not work.")
 
 class AuthService:
     def __init__(self):

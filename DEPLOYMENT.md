@@ -34,18 +34,71 @@ Fallback option using the Procfile.
 ```
 MONGODB_URL=mongodb+srv://username:password@cluster.mongodb.net/database
 SECRET_KEY=your-super-secure-jwt-secret-key-generate-a-new-one
-ALLOWED_ORIGINS=https://your-frontend-domain.com
+ALLOWED_ORIGINS=https://your-frontend-domain.com,https://your-app.vercel.app,http://localhost:3000
 ```
 
 ### Optional Variables (with defaults)
 ```
 DATABASE_NAME=splitwiser
-FIREBASE_PROJECT_ID=your-firebase-project-id
 DEBUG=false
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=30
 ALGORITHM=HS256
 ```
+
+### Firebase Service Account Credentials
+Instead of uploading the Firebase service account JSON file, you need to set the following environment variables from your service account JSON:
+
+```
+FIREBASE_TYPE=service_account
+FIREBASE_PROJECT_ID=your-project-id
+FIREBASE_PRIVATE_KEY_ID=your-private-key-id
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+FIREBASE_CLIENT_EMAIL=your-service-account-email@project.iam.gserviceaccount.com
+FIREBASE_CLIENT_ID=your-client-id
+FIREBASE_AUTH_URI=https://accounts.google.com/o/oauth2/auth
+FIREBASE_TOKEN_URI=https://oauth2.googleapis.com/token
+FIREBASE_AUTH_PROVIDER_X509_CERT_URL=https://www.googleapis.com/oauth2/v1/certs
+FIREBASE_CLIENT_X509_CERT_URL=https://www.googleapis.com/robot/v1/metadata/x509/your-service-account
+```
+
+To easily convert your Firebase service account JSON to environment variables, run:
+```
+python backend/convert_service_account_to_env.py backend/firebase-service-account.json
+```
+
+**Important Note:** The `FIREBASE_PRIVATE_KEY` must include all newlines. Railway's environment variables support multiline values, but be careful with the formatting.
+
+## Debugging CORS Issues
+
+If you're experiencing CORS issues (OPTIONS requests failing with 400 errors), follow these steps:
+
+1. **Verify ALLOWED_ORIGINS Environment Variable**:
+   Make sure your Railway deployment has the correct `ALLOWED_ORIGINS` set with your frontend domain:
+   ```
+   ALLOWED_ORIGINS=https://your-frontend-domain.vercel.app,http://localhost:3000
+   ```
+
+2. **Test CORS Configuration**:
+   Use the provided test script:
+   ```bash
+   cd backend
+   pip install requests
+   # Edit test_cors.py to use your backend and frontend URLs
+   python test_cors.py
+   ```
+
+3. **Check Railway Logs**:
+   Look for CORS-related messages in your Railway deployment logs. The enhanced logging will show:
+   - Allowed CORS origins on startup
+   - OPTIONS request details
+   - Origin headers from requests
+
+4. **Common CORS Issues**:
+   - Frontend domain not included in ALLOWED_ORIGINS
+   - Trailing slashes in URLs (e.g., `https://domain.com/` vs `https://domain.com`)
+   - HTTP vs HTTPS mismatch
+   - Wrong port numbers in localhost URLs
 
 ### Example of Setting Variables in Railway:
 - Variable: `MONGODB_URL`
