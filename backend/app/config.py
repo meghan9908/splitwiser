@@ -30,9 +30,9 @@ class Settings(BaseSettings):
       # App
     debug: bool = False
     
-    # CORS
-    allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173"
-    
+    # CORS - Add your frontend domain here for production
+    allowed_origins: str = "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://127.0.0.1:5173,https://127.0.0.1:8081"
+
     class Config:
         env_file = ".env"
 

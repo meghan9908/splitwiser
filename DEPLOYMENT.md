@@ -69,6 +69,37 @@ python backend/convert_service_account_to_env.py backend/firebase-service-accoun
 
 **Important Note:** The `FIREBASE_PRIVATE_KEY` must include all newlines. Railway's environment variables support multiline values, but be careful with the formatting.
 
+## Debugging CORS Issues
+
+If you're experiencing CORS issues (OPTIONS requests failing with 400 errors), follow these steps:
+
+1. **Verify ALLOWED_ORIGINS Environment Variable**:
+   Make sure your Railway deployment has the correct `ALLOWED_ORIGINS` set with your frontend domain:
+   ```
+   ALLOWED_ORIGINS=https://your-frontend-domain.vercel.app,http://localhost:3000
+   ```
+
+2. **Test CORS Configuration**:
+   Use the provided test script:
+   ```bash
+   cd backend
+   pip install requests
+   # Edit test_cors.py to use your backend and frontend URLs
+   python test_cors.py
+   ```
+
+3. **Check Railway Logs**:
+   Look for CORS-related messages in your Railway deployment logs. The enhanced logging will show:
+   - Allowed CORS origins on startup
+   - OPTIONS request details
+   - Origin headers from requests
+
+4. **Common CORS Issues**:
+   - Frontend domain not included in ALLOWED_ORIGINS
+   - Trailing slashes in URLs (e.g., `https://domain.com/` vs `https://domain.com`)
+   - HTTP vs HTTPS mismatch
+   - Wrong port numbers in localhost URLs
+
 ### Example of Setting Variables in Railway:
 - Variable: `MONGODB_URL`
 - Value: `mongodb+srv://myuser:mypassword@cluster0.abc123.mongodb.net/splitwiser`
