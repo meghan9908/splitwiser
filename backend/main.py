@@ -1,5 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from app.database import connect_to_mongo, close_mongo_connection
 from app.auth.routes import router as auth_router
 from app.config import settings
@@ -20,6 +21,8 @@ else:
     # Fallback to allow all origins if not specified (not recommended for production)
     allowed_origins = ["*"]
 
+print(f"Allowed CORS origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
@@ -28,7 +31,7 @@ app.add_middleware(
     allow_headers=[
         "Accept",
         "Accept-Language",
-        "Content-Language",
+        "Content-Language", 
         "Content-Type",
         "Authorization",
         "X-Requested-With",
@@ -41,11 +44,30 @@ app.add_middleware(
     max_age=3600,  # Cache preflight responses for 1 hour
 )
 
-# Add an explicit OPTIONS handler for debugging
-@app.options("/{full_path:path}")
-async def options_handler(full_path: str):
-    """Handle OPTIONS requests explicitly"""
-    return {"message": "OK"}
+# Add a catch-all OPTIONS handler that should work for any path
+@app.options("/{path:path}")
+async def options_handler(request: Request, path: str):
+    """Handle all OPTIONS requests"""
+    print(f"OPTIONS request received for path: /{path}")
+    print(f"Origin: {request.headers.get('origin', 'No origin header')}")
+    
+    response = Response(status_code=200)
+    
+    # Manually set CORS headers for debugging
+    origin = request.headers.get("origin")
+    if origin and (origin in allowed_origins or "*" in allowed_origins):
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Cache-Control, Pragma, X-CSRFToken"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "3600"
+    elif "*" in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Accept, Accept-Language, Content-Language, Content-Type, Authorization, X-Requested-With, Origin, Cache-Control, Pragma, X-CSRFToken"
+        response.headers["Access-Control-Max-Age"] = "3600"
+    
+    return response
 
 # Database events
 @app.on_event("startup")
