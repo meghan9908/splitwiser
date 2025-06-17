@@ -12,16 +12,40 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware
-allowed_origins = settings.allowed_origins.split(",") if settings.allowed_origins else ["*"]
+# CORS middleware - Enhanced configuration for production
+allowed_origins = []
+if settings.allowed_origins:
+    allowed_origins = [origin.strip() for origin in settings.allowed_origins.split(",") if origin.strip()]
+else:
+    # Fallback to allow all origins if not specified (not recommended for production)
+    allowed_origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language",
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "Cache-Control",
+        "Pragma",
+        "X-CSRFToken"
+    ],
+    expose_headers=["*"],
+    max_age=3600,  # Cache preflight responses for 1 hour
 )
+
+# Add an explicit OPTIONS handler for debugging
+@app.options("/{full_path:path}")
+async def options_handler(full_path: str):
+    """Handle OPTIONS requests explicitly"""
+    return {"message": "OK"}
 
 # Database events
 @app.on_event("startup")
