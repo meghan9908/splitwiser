@@ -28,4 +28,4 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         export PYTHONPATH=$PYTHONPATH:./backend
-        pytest backend/tests/auth/test_auth_routes.py
+        pytest backend/tests/
