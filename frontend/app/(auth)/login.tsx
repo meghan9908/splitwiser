@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import GoogleSignInButton from '../components/GoogleSignInButton';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { router } from 'expo-router';
@@ -160,7 +161,15 @@ export default function Login() {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => router.push('/signup')}>
+      <View style={styles.separator}>
+        <View style={styles.separatorLine} />
+        <Text style={styles.separatorText}>OR</Text>
+        <View style={styles.separatorLine} />
+      </View>
+
+      <GoogleSignInButton />
+
+      <TouchableOpacity onPress={() => router.push('/signup')} style={{ marginTop: 20 }}>
         <Text style={styles.linkText}>Don't have an account? Sign up</Text>
       </TouchableOpacity>
     </View>
@@ -178,6 +187,9 @@ type Styles = {
   buttonDisabled: ViewStyle;
   buttonText: TextStyle;
   linkText: TextStyle;
+  separator: ViewStyle;
+  separatorLine: ViewStyle;
+  separatorText: TextStyle;
 };
 
 const styles = StyleSheet.create<Styles>({
@@ -234,6 +246,21 @@ const styles = StyleSheet.create<Styles>({
   linkText: {
     color: '#2196F3',
     textAlign: 'center',
-    marginTop: 20,
+    // marginTop: 20, // Adjusted margin in the JSX directly
+  },
+  separator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  separatorLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#ddd',
+  },
+  separatorText: {
+    marginHorizontal: 10,
+    color: '#666',
+    fontSize: 14,
   },
 });

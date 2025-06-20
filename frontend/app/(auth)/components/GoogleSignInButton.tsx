@@ -12,8 +12,9 @@ WebBrowser.maybeCompleteAuthSession();
 const API_URL = 'https://splitwiser-production.up.railway.app';
 
 // Replace with your own client IDs
-const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID';
-const GOOGLE_EXPO_CLIENT_ID = 'YOUR_GOOGLE_EXPO_CLIENT_ID'; 
+// TODO: Replace these placeholder values with your actual Google Client IDs
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE';
+const GOOGLE_EXPO_CLIENT_ID = 'YOUR_GOOGLE_EXPO_CLIENT_ID_HERE';
 
 export default function GoogleSignInButton() {
   const [isLoading, setIsLoading] = useState(false);

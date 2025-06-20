@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { z } from 'zod';
-// import GoogleSignInButton from './components/GoogleSignInButton';
+import GoogleSignInButton from './components/GoogleSignInButton';
 
 const signupSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -121,7 +121,6 @@ export default function Signup() {
         <Text style={styles.linkText}>Already have an account? Login</Text>
       </TouchableOpacity>
 
-      {/* Temporarily commented out Google Sign-In
       <View style={styles.separator}>
         <View style={styles.separatorLine} />
         <Text style={styles.separatorText}>OR</Text>
@@ -129,7 +128,6 @@ export default function Signup() {
       </View>
 
       <GoogleSignInButton />
-      */}
     </View>
   );
 }

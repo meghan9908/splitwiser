@@ -47,7 +47,7 @@ export default function Index() {
       // Clear all storage
       await AsyncStorage.multiRemove(["access_token", "refresh_token", "user"]);
       // Navigate back to login
-      router.push("/(auth)/login");
+      router.replace("/(auth)/login");
     } catch (error) {
       console.error("Error during logout:", error);
     }
