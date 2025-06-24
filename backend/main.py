@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from app.database import connect_to_mongo, close_mongo_connection
 from app.auth.routes import router as auth_router
+from app.user.routes import router as user_router
 from app.config import settings
 
 app = FastAPI(
@@ -101,6 +102,7 @@ async def health_check():
 
 # Include routers
 app.include_router(auth_router)
+app.include_router(user_router)
 
 if __name__ == "__main__":
     import uvicorn

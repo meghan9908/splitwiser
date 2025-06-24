@@ -2,7 +2,8 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 from jose import JWTError, jwt
 from passlib.context import CryptContext
-from fastapi import HTTPException, status
+from fastapi import HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer
 from app.config import settings
 import secrets
 
@@ -12,6 +13,8 @@ try:
 except Exception:
     # Fallback for bcrypt version compatibility issues
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login/email")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
@@ -95,3 +98,25 @@ def generate_reset_token() -> str:
         A random 32-byte URL-safe string suitable for use as a password reset token.
     """
     return secrets.token_urlsafe(32)
+
+def get_current_user(token: str = Depends(oauth2_scheme)) -> Dict[str, Any]:
+    """
+    Retrieves the current user based on the provided JWT token.
+    
+    Args:
+        token: The JWT token from which to extract the user information.
+    
+    Returns:
+        A dictionary containing the current user's information.
+    
+    Raises:
+        HTTPException: If the token is invalid or user information cannot be extracted.
+    """
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
+        return {"_id": user_id}
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
