@@ -162,7 +162,7 @@ def test_expense_apis():
             user_balances[payer] -= amount  # Payer is owed money
         
         debtors = [[uid, bal] for uid, bal in user_balances.items() if bal > 0.01]
-        creditors = [[uid, -bal] for uid, bal in user_balances.items() if bal < -0.01]
+        creditors = [[uid, bal] for uid, bal in user_balances.items() if bal < -0.01]
         
         debtors.sort(key=lambda x: x[1], reverse=True)
         creditors.sort(key=lambda x: x[1], reverse=True)
@@ -209,6 +209,40 @@ def test_expense_apis():
     
     for settlement in advanced_result:
         print(f"     {settlement['from']} pays {settlement['to']} ${settlement['amount']:.2f}")
+    
+    print("\n🔧 Testing PATCH Endpoint Specifically:")
+    print("   1. First, create an expense using POST /groups/{group_id}/expenses")
+    print("   2. Note the returned expense ID")
+    print("   3. Use the debug endpoint: GET /groups/{group_id}/expenses/{expense_id}/debug")
+    print("   4. Test PATCH with simple update: PATCH /groups/{group_id}/expenses/{expense_id}")
+    print("      Body: {\"description\": \"Updated description\"}")
+    print("   5. Check server logs for detailed error messages")
+    
+    print("\n🔍 Sample PATCH requests to test:")
+    print("   • Update description only:")
+    print("     PATCH /groups/{group_id}/expenses/{expense_id}")
+    print("     {\"description\": \"New description\"}")
+    
+    print("   • Update amount only:")
+    print("     PATCH /groups/{group_id}/expenses/{expense_id}")
+    print("     {\"amount\": 150.50}")
+    
+    print("   • Update amount and splits:")
+    print("     PATCH /groups/{group_id}/expenses/{expense_id}")
+    print("     {")
+    print("       \"amount\": 150.0,")
+    print("       \"splits\": [")
+    print("         {\"userId\": \"user_a\", \"amount\": 75.0},")
+    print("         {\"userId\": \"user_b\", \"amount\": 75.0}")
+    print("       ]")
+    print("     }")
+    
+    print("\n⚠️  Common 500 Error Causes:")
+    print("   • Invalid ObjectId format for expense_id")
+    print("   • User doesn't have permission to edit expense")
+    print("   • MongoDB connection issues")
+    print("   • Validation errors in splits/amount")
+    print("   • Missing required fields in database")
     
     print("\n🎉 Expense Service API is ready!")
     print("   Visit http://localhost:8000/docs for complete API documentation")

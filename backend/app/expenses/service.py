@@ -228,14 +228,33 @@ class ExpenseService:
         """Update an expense"""
         
         try:
+            # Validate ObjectId format
+            try:
+                expense_obj_id = ObjectId(expense_id)
+            except Exception as e:
+                raise ValueError(f"Invalid expense ID format: {expense_id}")
+            
             # Verify user access and that they created the expense
             expense_doc = await self.expenses_collection.find_one({
-                "_id": ObjectId(expense_id),
+                "_id": expense_obj_id,
                 "groupId": group_id,
                 "createdBy": user_id
             })
             if not expense_doc:
                 raise ValueError("Expense not found or not authorized to edit")
+
+            # Validate splits against current or new amount if both are being updated
+            if updates.splits is not None and updates.amount is not None:
+                total_split = sum(split.amount for split in updates.splits)
+                if abs(total_split - updates.amount) > 0.01:
+                    raise ValueError('Split amounts must sum to total expense amount')
+            
+            # If only splits are being updated, validate against current amount
+            elif updates.splits is not None:
+                current_amount = expense_doc["amount"]
+                total_split = sum(split.amount for split in updates.splits)
+                if abs(total_split - current_amount) > 0.01:
+                    raise ValueError('Split amounts must sum to current expense amount')
 
             # Store original data for history
             original_data = {
@@ -261,8 +280,11 @@ class ExpenseService:
             # Only add history if there are actual changes
             if len(update_doc) > 1:  # More than just updatedAt
                 # Get user name
-                user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
-                user_name = user.get("name", "Unknown User") if user else "Unknown User"
+                try:
+                    user = await self.users_collection.find_one({"_id": ObjectId(user_id)})
+                    user_name = user.get("name", "Unknown User") if user else "Unknown User"
+                except:
+                    user_name = "Unknown User"
                 
                 history_entry = {
                     "_id": ObjectId(),
@@ -273,33 +295,47 @@ class ExpenseService:
                 }
 
                 # Update expense with both $set and $push operations
-                await self.expenses_collection.update_one(
-                    {"_id": ObjectId(expense_id)},
+                result = await self.expenses_collection.update_one(
+                    {"_id": expense_obj_id},
                     {
                         "$set": update_doc,
                         "$push": {"history": history_entry}
                     }
                 )
+                
+                if result.matched_count == 0:
+                    raise ValueError("Expense not found during update")
             else:
                 # No actual changes, just update the timestamp
-                await self.expenses_collection.update_one(
-                    {"_id": ObjectId(expense_id)},
+                result = await self.expenses_collection.update_one(
+                    {"_id": expense_obj_id},
                     {"$set": update_doc}
                 )
+                
+                if result.matched_count == 0:
+                    raise ValueError("Expense not found during update")
 
             # If splits changed, recalculate settlements
             if updates.splits is not None or updates.amount is not None:
-                # Delete old settlements for this expense
-                await self.settlements_collection.delete_many({"expenseId": expense_id})
-                
-                # Get updated expense
-                updated_expense = await self.expenses_collection.find_one({"_id": ObjectId(expense_id)})
-                
-                # Create new settlements
-                await self._create_settlements_for_expense(updated_expense, user_id)
+                try:
+                    # Delete old settlements for this expense
+                    await self.settlements_collection.delete_many({"expenseId": expense_id})
+                    
+                    # Get updated expense
+                    updated_expense = await self.expenses_collection.find_one({"_id": expense_obj_id})
+                    
+                    if updated_expense:
+                        # Create new settlements
+                        await self._create_settlements_for_expense(updated_expense, user_id)
+                except Exception as e:
+                    print(f"Warning: Failed to recalculate settlements: {e}")
+                    # Continue anyway, as the expense update succeeded
 
             # Return updated expense
-            updated_expense = await self.expenses_collection.find_one({"_id": ObjectId(expense_id)})
+            updated_expense = await self.expenses_collection.find_one({"_id": expense_obj_id})
+            if not updated_expense:
+                raise ValueError("Failed to retrieve updated expense")
+                
             return await self._expense_doc_to_response(updated_expense)
             
         except ValueError:
@@ -308,7 +344,7 @@ class ExpenseService:
             print(f"Error in update_expense: {str(e)}")
             import traceback
             traceback.print_exc()
-            raise
+            raise Exception(f"Database error during expense update: {str(e)}")
 
     async def delete_expense(self, group_id: str, expense_id: str, user_id: str) -> bool:
         """Delete an expense"""
