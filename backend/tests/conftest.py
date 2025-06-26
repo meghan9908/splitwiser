@@ -37,47 +37,68 @@ def mock_firebase_admin(request):
         "picture": None
     } # Dummy decoded token
 
-    patches = [
-        patch("firebase_admin.credentials.Certificate", mock_certificate),
-        patch("firebase_admin.initialize_app", mock_initialize_app),
-        patch("firebase_admin.auth", mock_firebase_auth) # Mock auth module
+    # Ensure firebase_admin.auth is available to be patched
+    try:
+        import firebase_admin.auth
+    except ImportError:
+        # If it's not directly importable, the structure might be different or initialization needed.
+        # For now, we assume it should be available or this mock needs adjustment based on library structure.
+        pass
+
+    patches_to_apply = [
+        ("firebase_admin.credentials.Certificate", mock_certificate),
+        ("firebase_admin.initialize_app", mock_initialize_app)
     ]
 
-    for p in patches:
-        p.start()
-        request.addfinalizer(p.stop)
+    # Conditionally add patch for firebase_admin.auth if it seems available
+    if hasattr(firebase_admin, 'auth'):
+        patches_to_apply.append(("firebase_admin.auth", mock_firebase_auth))
+    else:
+        # If firebase_admin.auth is not an attribute, try patching where it might be used,
+        # e.g., if auth_service imports it as `from firebase_admin import auth`.
+        # This is a fallback, direct attribute patching is preferred if possible.
+        # For now, we'll rely on the hasattr check.
+        print("Warning: firebase_admin.auth not found as a direct attribute, auth mocking might be incomplete.")
 
-    # Also, to prevent the "Firebase service account not found" print,
-    # we can temporarily set one of the expected firebase env vars
-    # so the code thinks it's configured, but initialize_app being mocked means nothing happens.
-    # This is optional and depends on whether the print is problematic.
-    # with patch.dict(os.environ, {"FIREBASE_PROJECT_ID": "test-project"}, clear=True):
-    # yield
 
-    # If not using the os.environ patch, just yield:
+    active_patches = []
+    for target_path, mock_object in patches_to_apply:
+        try:
+            p = patch(target_path, mock_object)
+            p.start()
+            active_patches.append(p)
+        except AttributeError:
+            print(f"Warning: Could not patch {target_path}, attribute not found.")
+
+    request.addfinalizer(lambda: [p.stop() for p in active_patches])
     yield
 
 @pytest_asyncio.fixture(scope="function", autouse=True)
-async def mock_db():
-    print("mock_db fixture: Creating AsyncMongoMockClient")
+async def mock_db(monkeypatch):
+    """
+    Mocks the database for all service tests by patching app.database.get_database.
+    Uses mongomock_motor for an in-memory MongoDB mock.
+    """
     mock_mongo_client = AsyncMongoMockClient()
-    print(f"mock_db fixture: mock_mongo_client type: {type(mock_mongo_client)}")
-    mock_database_instance = mock_mongo_client["test_db"]
-    print(f"mock_db fixture: mock_database_instance type: {type(mock_database_instance)}, is None: {mock_database_instance is None}")
+    mock_database_instance = mock_mongo_client["test_db_mock"]
 
-    # Ensure we are patching the correct target
-    # 'app.database.get_database' is where the function is defined.
-    # 'app.auth.service.get_database' is where it's imported and looked up by AuthService.
-    # Patching where it's looked up can be more robust.
+    # Patch get_database at its definition site to affect all imports
+    monkeypatch.setattr("app.database.get_database", lambda: mock_database_instance)
 
-    with patch("app.auth.service.get_database", return_value=mock_database_instance) as mock_get_database_function:
-        print(f"mock_db fixture: Patching app.auth.service.get_database. Patched object: {mock_get_database_function}")
-        print(f"mock_db fixture: Patched return_value: {mock_get_database_function.return_value}, type: {type(mock_get_database_function.return_value)}")
-        yield mock_database_instance # yield the same instance for direct use if needed
-        print("mock_db fixture: Restoring app.auth.service.get_database")
+    # Also patch it where it might be directly imported by services if they use `from app.database import get_database`
+    # This ensures all services (auth, user, group) get the mocked DB.
+    # Note: If services import get_database as `from app.some_module import get_database`, that path also needs patching.
+    # Assuming services do `from app.database import get_database` or `app.database.get_database()`
 
-    # Optional: clear all collections in the mock_database after each test
-    # This ensures test isolation.
-    # mongomock doesn't have a straightforward way to list all collections like a real DB,
-    # so we might need to clear known collections if necessary, or rely on new client per test.
-    # For now, a new AsyncMongoMockClient per function scope should provide good isolation.
+    # The following specific patches might be redundant if all services correctly use app.database.get_database
+    # but are kept for safety, assuming services might have `from app.database import get_database`.
+    # If a service does `import app.database` and then `app.database.get_database()`, the above patch is sufficient.
+
+    # monkeypatch.setattr("app.auth.service.get_database", lambda: mock_database_instance)
+    # monkeypatch.setattr("app.user.service.get_database", lambda: mock_database_instance)
+    # monkeypatch.setattr("app.group.service.get_database", lambda: mock_database_instance) # For group service
+
+    yield mock_database_instance
+
+    # Cleanup: mongomock client does not need explicit closing for function scope.
+    # Collections will be fresh for each test due to new client.
