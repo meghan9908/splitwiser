@@ -6,13 +6,12 @@ class UserProfileResponse(BaseModel):
     id: str = Field(alias="_id")
     name: str
     email: EmailStr
-    imageUrl: Optional[str] = None
+    imageUrl: Optional[str] = Field(default=None, alias="avatar")
     currency: str = "USD"
     createdAt: datetime
     updatedAt: datetime
 
-    class Config:
-        populate_by_name = True
+    model_config = {"populate_by_name": True}
 
 class UserProfileUpdateRequest(BaseModel):
     name: Optional[str] = None
