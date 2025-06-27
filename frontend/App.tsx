@@ -9,11 +9,43 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AccountScreen from './screens/AccountScreen';
 import ActivityScreen from './screens/ActivityScreen';
 import FriendsScreen from './screens/FriendsScreen';
+import GroupDetailsScreen from './screens/GroupDetailsScreen';
+import GroupSettingsScreen from './screens/GroupSettingsScreen';
 import GroupsScreen from './screens/GroupsScreen';
 import LoginScreen from './screens/LoginScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+
+function GroupsStack() {
+  return (
+    <Stack.Navigator>
+      <Stack.Screen 
+        name="GroupsList" 
+        component={GroupsScreen} 
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen 
+        name="GroupDetails" 
+        component={GroupDetailsScreen} 
+        options={{ 
+          headerShown: true,
+          title: 'Group Details',
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen 
+        name="GroupSettings" 
+        component={GroupSettingsScreen} 
+        options={{ 
+          headerShown: true,
+          title: 'Group Settings',
+          headerBackTitleVisible: false,
+        }}
+      />
+    </Stack.Navigator>
+  );
+}
 
 function MainTabs() {
   return (
@@ -61,7 +93,7 @@ function MainTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Groups" component={GroupsScreen} />
+      <Tab.Screen name="Groups" component={GroupsStack} />
       <Tab.Screen name="Friends" component={FriendsScreen} />
       <Tab.Screen name="Activity" component={ActivityScreen} />
       <Tab.Screen name="Account" component={AccountScreen} />

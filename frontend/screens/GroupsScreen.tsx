@@ -28,7 +28,11 @@ interface Group {
   }>;
 }
 
-export default function GroupsScreen() {
+interface GroupsScreenProps {
+  navigation: any;
+}
+
+export default function GroupsScreen({ navigation }: GroupsScreenProps) {
   const { accessToken } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,8 +100,7 @@ export default function GroupsScreen() {
   };
 
   const handleGroupPress = (group: Group) => {
-    // TODO: Navigate to group details screen
-    Alert.alert('Group Selected', `Navigating to ${group.name}`);
+    navigation.navigate('GroupDetails', { groupId: group.id });
   };
 
   const handleCreateGroup = async (groupData: { name: string; currency: string; imageUrl?: string }) => {
