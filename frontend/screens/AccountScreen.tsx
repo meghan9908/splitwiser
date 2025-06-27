@@ -11,7 +11,7 @@ import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { UserProfile } from '../types/user';
 
-export default function AccountScreen() {
+export default function AccountScreen({ navigation }: any) {
   const { logout, user, accessToken } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -76,25 +76,25 @@ export default function AccountScreen() {
         </View>
 
         <View style={styles.section}>
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EditProfile')}>
             <Ionicons name="person-outline" size={24} color="#666" />
             <Text style={styles.menuText}>Edit Profile</Text>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Notifications')}>
             <Ionicons name="notifications-outline" size={24} color="#666" />
             <Text style={styles.menuText}>Notifications</Text>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Settings')}>
             <Ionicons name="settings-outline" size={24} color="#666" />
             <Text style={styles.menuText}>Settings</Text>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.menuItem}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('HelpSupport')}>
             <Ionicons name="help-circle-outline" size={24} color="#666" />
             <Text style={styles.menuText}>Help & Support</Text>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />

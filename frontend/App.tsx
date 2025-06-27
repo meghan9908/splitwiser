@@ -14,6 +14,10 @@ import GroupDetailsScreen from './screens/GroupDetailsScreen';
 import GroupSettingsScreen from './screens/GroupSettingsScreen';
 import GroupsScreen from './screens/GroupsScreen';
 import LoginScreen from './screens/LoginScreen';
+import EditProfileScreen from './screens/EditProfileScreen';
+import NotificationsScreen from './screens/NotificationsScreen';
+import SettingsScreen from './screens/SettingsScreen';
+import HelpSupportScreen from './screens/HelpSupportScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -118,11 +122,17 @@ function AppNavigator() {
   return (
     <Stack.Navigator>
       {isAuthenticated ? (
-        <Stack.Screen 
-          name="Main" 
-          component={MainTabs} 
-          options={{ headerShown: false }} 
-        />
+        <>
+          <Stack.Screen 
+            name="Main" 
+            component={MainTabs} 
+            options={{ headerShown: false }} 
+          />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Edit Profile' }} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Notifications' }} />
+          <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+          <Stack.Screen name="HelpSupport" component={HelpSupportScreen} options={{ title: 'Help & Support' }} />
+        </>
       ) : (
         <Stack.Screen 
           name="Login" 
