@@ -52,6 +52,10 @@ const splitOptions: SplitOption[] = [
 
 export default function AddExpenseModal({ visible, onClose, group, onExpenseAdded }: AddExpenseModalProps) {
   const { accessToken, user } = useAuth();
+  
+  console.log('AddExpenseModal - user from AuthContext:', user);
+  console.log('AddExpenseModal - accessToken available:', !!accessToken);
+  
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<string>('');
@@ -65,39 +69,79 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
 
   // Create members list from current user and group members
   const getGroupMembers = () => {
+    console.log('Getting group members...');
+    console.log('Current user:', user);
+    console.log('Group members:', group.members);
+    console.log('Member details:', memberDetails);
+    
     const members = [];
     
-    // Add current user first
-    if (user) {
-      const currentUserId = user.id || user._id || 'current-user';
-      members.push({
-        userId: currentUserId,
-        name: memberDetails[currentUserId]?.name || user.name || 'You',
-        email: memberDetails[currentUserId]?.email || user.email || '',
-        isCurrentUser: true,
-      });
+    // Determine current user ID - try different approaches
+    let currentUserId = user?.id || user?._id;
+    
+    // If user is undefined, try to identify current user by finding the admin
+    if (!currentUserId && group.members.length > 0) {
+      const adminMember = group.members.find(m => m.role === 'admin');
+      if (adminMember) {
+        currentUserId = adminMember.userId;
+        console.log('User undefined, using admin as current user:', currentUserId);
+      } else {
+        // Fallback to first member
+        currentUserId = group.members[0].userId;
+        console.log('No admin found, using first member as current user:', currentUserId);
+      }
     }
     
-    // Add other group members (exclude current user if already in group.members)
+    // Process all group members
     group.members.forEach((member) => {
       const memberUserId = member.userId;
-      const isCurrentUser = user && (memberUserId === user.id || memberUserId === user._id);
+      const isCurrentUser = memberUserId === currentUserId;
       
-      if (!isCurrentUser) {
-        members.push({
-          userId: memberUserId,
-          name: memberDetails[memberUserId]?.name || `Member ${memberUserId.slice(-4)}`,
-          email: memberDetails[memberUserId]?.email || `member@example.com`,
-          isCurrentUser: false,
-        });
-      }
+      const memberName = memberDetails[memberUserId]?.name || 
+                        member.name || 
+                        (isCurrentUser ? 'You' : `Member ${memberUserId.slice(-4)}`);
+      const memberEmail = memberDetails[memberUserId]?.email || 
+                         member.email || 
+                         (isCurrentUser ? 'you@example.com' : `${memberUserId}@example.com`);
+      
+      members.push({
+        userId: memberUserId,
+        name: memberName,
+        email: memberEmail,
+        isCurrentUser: isCurrentUser,
+      });
     });
     
+    // Sort so current user appears first
+    members.sort((a, b) => {
+      if (a.isCurrentUser && !b.isCurrentUser) return -1;
+      if (!a.isCurrentUser && b.isCurrentUser) return 1;
+      return 0;
+    });
+    
+    console.log('Final group members list:', members);
     return members;
   };
 
   const groupMembers = getGroupMembers();
-  const currentUserId = user?.id || user?._id || 'current-user';
+  
+  // Get current user ID using the same logic as getGroupMembers
+  const getCurrentUserId = () => {
+    let currentUserId = user?.id || user?._id;
+    
+    if (!currentUserId && group.members.length > 0) {
+      const adminMember = group.members.find(m => m.role === 'admin');
+      if (adminMember) {
+        currentUserId = adminMember.userId;
+      } else {
+        currentUserId = group.members[0].userId;
+      }
+    }
+    
+    return currentUserId || 'current-user';
+  };
+  
+  const currentUserId = getCurrentUserId();
 
   // Fetch member details when modal opens
   useEffect(() => {
@@ -108,27 +152,91 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
 
   const fetchMemberDetails = async () => {
     try {
-      const response = await axios.get(`/groups/${group.id}/members`, {
+      console.log('Fetching member details for group:', group.id);
+      
+      // Try to get detailed group info first (which might include member details)
+      const groupResponse = await axios.get(`/groups/${group.id}`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+      
+      console.log('Group details response:', groupResponse.data);
+      
+      // Try to get specific member details
+      const memberResponse = await axios.get(`/groups/${group.id}/members`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
 
-      if (response.data && response.data.members) {
+      console.log('Member details response:', memberResponse.data);
+
+      if (memberResponse.data && memberResponse.data.members) {
         const details: {[userId: string]: {name: string, email: string}} = {};
-        response.data.members.forEach((member: any) => {
+        memberResponse.data.members.forEach((member: any) => {
+          console.log('Processing member:', member);
           if (member.user) {
             details[member.userId] = {
               name: member.user.name || `Member ${member.userId.slice(-4)}`,
               email: member.user.email || 'member@example.com',
             };
+          } else {
+            // If no user details, use userId for basic info
+            details[member.userId] = {
+              name: `Member ${member.userId.slice(-4)}`,
+              email: `${member.userId}@example.com`,
+            };
           }
         });
+        console.log('Final member details:', details);
+        setMemberDetails(details);
+      } else if (memberResponse.data && Array.isArray(memberResponse.data)) {
+        // Handle direct array response
+        const details: {[userId: string]: {name: string, email: string}} = {};
+        memberResponse.data.forEach((member: any) => {
+          console.log('Processing member (array format):', member);
+          details[member.userId] = {
+            name: member.name || member.user?.name || `Member ${member.userId.slice(-4)}`,
+            email: member.email || member.user?.email || `${member.userId}@example.com`,
+          };
+        });
+        console.log('Final member details (array format):', details);
         setMemberDetails(details);
       }
     } catch (error) {
-      console.log('Could not fetch member details:', error);
-      // Continue with basic member info if API not available
+      console.log('Error fetching member details:', error);
+      if (axios.isAxiosError(error)) {
+        console.log('Error response:', error.response?.data);
+        console.log('Error status:', error.response?.status);
+        
+        // If the members endpoint doesn't exist, try to use current user data
+        if (error.response?.status === 404 || error.response?.status === 405) {
+          console.log('Members endpoint not available, using basic user info');
+          const details: {[userId: string]: {name: string, email: string}} = {};
+          
+          // Add current user
+          if (user) {
+            const currentUserId = user.id || user._id || 'current-user';
+            details[currentUserId] = {
+              name: user.name || 'You',
+              email: user.email || 'you@example.com',
+            };
+          }
+          
+          // Add basic info for other members
+          group.members.forEach((member) => {
+            if (!details[member.userId]) {
+              details[member.userId] = {
+                name: `Member ${member.userId.slice(-4)}`,
+                email: `${member.userId}@example.com`,
+              };
+            }
+          });
+          
+          setMemberDetails(details);
+        }
+      }
     }
   };
 
