@@ -2,17 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -51,7 +51,7 @@ const splitOptions: SplitOption[] = [
 ];
 
 export default function AddExpenseModal({ visible, onClose, group, onExpenseAdded }: AddExpenseModalProps) {
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedPayer, setSelectedPayer] = useState<string>('');
@@ -61,32 +61,90 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
   const [showPayerSelector, setShowPayerSelector] = useState(false);
   const [showMemberSelector, setShowMemberSelector] = useState(false);
   const [showSplitOptions, setShowSplitOptions] = useState(false);
+  const [memberDetails, setMemberDetails] = useState<{[userId: string]: {name: string, email: string}}>({});
 
-  // Mock members for demo (until user service is available)
-  const mockMembers = [
-    { userId: 'current-user', name: 'You', email: 'you@example.com' },
-    { userId: 'member-1', name: 'John Doe', email: 'john@example.com' },
-    { userId: 'member-2', name: 'Jane Smith', email: 'jane@example.com' },
-    ...group.members.map((member, index) => ({
-      userId: member.userId,
-      name: `Member ${index + 1}`,
-      email: `member${index + 1}@example.com`,
-    }))
-  ];
+  // Create members list from current user and group members
+  const getGroupMembers = () => {
+    const members = [];
+    
+    // Add current user first
+    if (user) {
+      const currentUserId = user.id || user._id || 'current-user';
+      members.push({
+        userId: currentUserId,
+        name: memberDetails[currentUserId]?.name || user.name || 'You',
+        email: memberDetails[currentUserId]?.email || user.email || '',
+        isCurrentUser: true,
+      });
+    }
+    
+    // Add other group members (exclude current user if already in group.members)
+    group.members.forEach((member) => {
+      const memberUserId = member.userId;
+      const isCurrentUser = user && (memberUserId === user.id || memberUserId === user._id);
+      
+      if (!isCurrentUser) {
+        members.push({
+          userId: memberUserId,
+          name: memberDetails[memberUserId]?.name || `Member ${memberUserId.slice(-4)}`,
+          email: memberDetails[memberUserId]?.email || `member@example.com`,
+          isCurrentUser: false,
+        });
+      }
+    });
+    
+    return members;
+  };
+
+  const groupMembers = getGroupMembers();
+  const currentUserId = user?.id || user?._id || 'current-user';
+
+  // Fetch member details when modal opens
+  useEffect(() => {
+    if (visible && accessToken) {
+      fetchMemberDetails();
+    }
+  }, [visible, accessToken, group.id]);
+
+  const fetchMemberDetails = async () => {
+    try {
+      const response = await axios.get(`/groups/${group.id}/members`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.data && response.data.members) {
+        const details: {[userId: string]: {name: string, email: string}} = {};
+        response.data.members.forEach((member: any) => {
+          if (member.user) {
+            details[member.userId] = {
+              name: member.user.name || `Member ${member.userId.slice(-4)}`,
+              email: member.user.email || 'member@example.com',
+            };
+          }
+        });
+        setMemberDetails(details);
+      }
+    } catch (error) {
+      console.log('Could not fetch member details:', error);
+      // Continue with basic member info if API not available
+    }
+  };
 
   useEffect(() => {
     if (visible) {
       // Reset form when modal opens
       setDescription('');
       setAmount('');
-      setSelectedPayer('current-user');
-      setSelectedMembers(new Set(['current-user']));
+      setSelectedPayer(currentUserId);
+      setSelectedMembers(new Set([currentUserId]));
       setSplitType('equal');
       setShowPayerSelector(false);
       setShowMemberSelector(false);
       setShowSplitOptions(false);
     }
-  }, [visible]);
+  }, [visible, currentUserId]);
 
   const handleSubmit = async () => {
     if (!description.trim()) {
@@ -113,22 +171,34 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
     setLoading(true);
 
     try {
+      // Create splits array according to API format
+      const splits = Array.from(selectedMembers).map(userId => ({
+        userId,
+        amount: numAmount / selectedMembers.size, // Equal split for now
+        type: 'equal'
+      }));
+
       const expenseData = {
         description: description.trim(),
         amount: numAmount,
-        currency: group.currency,
-        paidBy: selectedPayer,
-        splitAmong: Array.from(selectedMembers),
-        groupId: group.id,
+        splits,
         splitType,
+        tags: [], // Empty for now, can be enhanced later
+        receiptUrls: [], // Empty for now, can be enhanced later
+        // Note: paidBy might be handled differently by the API
+        // For now, we'll let the API assume the creator paid
       };
 
-      await axios.post('/expenses', expenseData, {
+      console.log('Creating expense:', expenseData);
+
+      const response = await axios.post(`/groups/${group.id}/expenses`, expenseData, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
       });
+
+      console.log('Expense created:', response.data);
 
       Alert.alert('Success', 'Expense added successfully!', [
         { text: 'OK', onPress: () => {
@@ -138,13 +208,19 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
       ]);
     } catch (error) {
       console.error('Error adding expense:', error);
-      if (axios.isAxiosError(error) && error.response?.status === 405) {
-        Alert.alert('Demo Mode', 'Expense API not available yet. This is a UI demo.', [
-          { text: 'OK', onPress: () => {
-            onExpenseAdded();
-            onClose();
-          }}
-        ]);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 405) {
+          Alert.alert('Demo Mode', 'Expense API not available yet. This is a UI demo.', [
+            { text: 'OK', onPress: () => {
+              onExpenseAdded();
+              onClose();
+            }}
+          ]);
+        } else if (error.response?.data?.detail) {
+          Alert.alert('Error', error.response.data.detail);
+        } else {
+          Alert.alert('Error', `Failed to add expense: ${error.message}`);
+        }
       } else {
         Alert.alert('Error', 'Failed to add expense. Please try again.');
       }
@@ -166,16 +242,16 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
   };
 
   const getSelectedPayerName = () => {
-    const payer = mockMembers.find(m => m.userId === selectedPayer);
+    const payer = groupMembers.find(m => m.userId === selectedPayer);
     return payer?.name || 'Select payer';
   };
 
   const getSelectedMembersText = () => {
-    if (selectedMembers.size === mockMembers.length) {
+    if (selectedMembers.size === groupMembers.length) {
       return 'Everyone';
     }
     if (selectedMembers.size === 1) {
-      const member = mockMembers.find(m => selectedMembers.has(m.userId));
+      const member = groupMembers.find(m => selectedMembers.has(m.userId));
       return member?.name || '1 person';
     }
     return `${selectedMembers.size} people`;
@@ -269,7 +345,7 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
           {/* Payer Selector */}
           {showPayerSelector && (
             <View style={styles.selectorContainer}>
-              {mockMembers.map((member) => (
+              {groupMembers.map((member) => (
                 <TouchableOpacity
                   key={member.userId}
                   style={styles.memberOption}
@@ -313,7 +389,7 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
           {/* Member Selector */}
           {showMemberSelector && (
             <View style={styles.selectorContainer}>
-              {mockMembers.map((member) => (
+              {groupMembers.map((member) => (
                 <TouchableOpacity
                   key={member.userId}
                   style={styles.memberOption}
@@ -380,7 +456,7 @@ export default function AddExpenseModal({ visible, onClose, group, onExpenseAdde
             <View style={styles.previewSection}>
               <Text style={styles.previewTitle}>Split preview</Text>
               {Array.from(selectedMembers).map((userId) => {
-                const member = mockMembers.find(m => m.userId === userId);
+                const member = groupMembers.find(m => m.userId === userId);
                 const splitAmount = parseFloat(amount) / selectedMembers.size;
                 return (
                   <View key={userId} style={styles.previewItem}>

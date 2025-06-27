@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import CreateGroupModal from '../components/CreateGroupModal';
+import JoinGroupModal from '../components/JoinGroupModal';
 import { useAuth } from '../contexts/AuthContext';
 
 interface Group {
@@ -38,6 +39,8 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
+  const [joinModalVisible, setJoinModalVisible] = useState(false);
+  const [joiningGroup, setJoiningGroup] = useState(false);
 
   useEffect(() => {
     fetchGroups();
@@ -172,6 +175,7 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
       return;
     }
 
+    setJoiningGroup(true);
     try {
       const response = await axios.post('/groups/join', {
         joinCode: joinCode.trim().toUpperCase(),
@@ -195,6 +199,7 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
           }
           return [joinedGroup, ...prev];
         });
+        setJoinModalVisible(false);
         Alert.alert('Success', `Joined "${joinedGroup.name}" successfully!`);
         // Refresh the list to get updated member info
         fetchGroups();
@@ -216,28 +221,14 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
       } else {
         Alert.alert('Error', 'Failed to join group');
       }
+    } finally {
+      setJoiningGroup(false);
     }
   };
 
   const handleJoinGroupPrompt = () => {
-    Alert.prompt(
-      'Join Group',
-      'Enter the group join code:',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Join', 
-          onPress: (code) => {
-            if (code && code.trim()) {
-              handleJoinGroup(code.trim());
-            }
-          }
-        },
-      ],
-      'plain-text',
-      '',
-      'default'
-    );
+    console.log('Join group button pressed!'); // Debug log
+    setJoinModalVisible(true);
   };
 
   const renderGroupItem = ({ item }: { item: Group }) => {
@@ -298,8 +289,9 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
         <Text style={styles.headerTitle}>Groups</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
-            style={styles.headerButton}
+            style={[styles.headerButton, styles.joinButton]}
             onPress={handleJoinGroupPrompt}
+            activeOpacity={0.7}
           >
             <Ionicons name="enter" size={24} color="#2196F3" />
           </TouchableOpacity>
@@ -343,6 +335,13 @@ export default function GroupsScreen({ navigation }: GroupsScreenProps) {
         onClose={() => setCreateModalVisible(false)}
         onSubmit={handleCreateGroup}
       />
+
+      <JoinGroupModal
+        visible={joinModalVisible}
+        onClose={() => setJoinModalVisible(false)}
+        onJoin={handleJoinGroup}
+        loading={joiningGroup}
+      />
     </View>
   );
 }
@@ -369,6 +368,10 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
+  },
+  joinButton: {
+    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+    borderRadius: 8,
   },
   headerButtons: {
     flexDirection: 'row',

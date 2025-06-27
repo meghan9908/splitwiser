@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-const API_URL = 'https://splitwiser-production.up.railway.app'; // Use production API
+const API_URL = 'https://splitwiser-dev.up.railway.app'; // Use production API
 
 // Define the shape of our authentication context
 type AuthContextType = {
