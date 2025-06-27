@@ -1,3 +1,4 @@
+import React, { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
     ScrollView,
@@ -6,29 +7,71 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { UserProfile } from '../types/user';
 
 export default function AccountScreen() {
-  const { logout } = useAuth();
+  const { logout, user, accessToken } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch user profile on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await axios.get<UserProfile>('/users/me', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        setProfile(response.data);
+      } catch (err: any) {
+        setError('Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [accessToken]);
 
   const handleLogout = () => {
     logout();
   };
+
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Account</Text>
       </View>
-
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <View style={styles.profileSection}>
             <View style={styles.avatar}>
               <Ionicons name="person" size={40} color="#2196F3" />
             </View>
-            <Text style={styles.username}>John Doe</Text>
-            <Text style={styles.email}>john.doe@example.com</Text>
+            <Text style={styles.username}>{profile?.name || user?.name || 'User'}</Text>
+            <Text style={styles.email}>{profile?.email || user?.email || ''}</Text>
+            {profile?.currency && (
+              <Text style={styles.email}>Currency: {profile.currency}</Text>
+            )}
           </View>
         </View>
 
@@ -138,5 +181,10 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     color: '#F44336',
+  },
+  errorText: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 20,
   },
 });
