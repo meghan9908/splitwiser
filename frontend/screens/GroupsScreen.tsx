@@ -1,13 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 import { useEffect, useState } from 'react';
 import {
-    Alert,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import CreateGroupModal from '../components/CreateGroupModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,79 +16,75 @@ import { useAuth } from '../contexts/AuthContext';
 interface Group {
   id: string;
   name: string;
-  description?: string;
-  totalBalance: number;
-  memberCount: number;
-  avatar?: string;
+  currency: string;
+  joinCode: string;
+  createdBy: string;
+  createdAt: string;
+  imageUrl?: string;
+  members?: Array<{
+    userId: string;
+    role: 'admin' | 'member';
+    joinedAt: string;
+  }>;
 }
 
 export default function GroupsScreen() {
-  const { token } = useAuth();
+  const { accessToken } = useAuth();
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [createModalVisible, setCreateModalVisible] = useState(false);
-
-  // Mock data for demonstration
-  const mockGroups: Group[] = [
-    {
-      id: '1',
-      name: 'Vacation Crew',
-      description: 'Our amazing vacation trip',
-      totalBalance: 120.50,
-      memberCount: 4,
-      avatar: '🏖️',
-    },
-    {
-      id: '2',
-      name: 'Apartment Mates',
-      description: 'Shared expenses for our apartment',
-      totalBalance: 350.75,
-      memberCount: 3,
-      avatar: '🏠',
-    },
-    {
-      id: '3',
-      name: 'Road Trip Buddies',
-      description: 'Epic road trip expenses',
-      totalBalance: 80.25,
-      memberCount: 5,
-      avatar: '🚗',
-    },
-    {
-      id: '4',
-      name: 'Family Getaway',
-      description: 'Family vacation expenses',
-      totalBalance: 200.00,
-      memberCount: 6,
-      avatar: '👨‍👩‍👧‍👦',
-    },
-  ];
 
   useEffect(() => {
     fetchGroups();
   }, []);
 
   const fetchGroups = async () => {
+    if (!accessToken) {
+      console.log('No access token available');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('http://localhost:8000/groups', {
-      //   headers: {
-      //     'Authorization': `Bearer ${token}`,
-      //   },
-      // });
-      // const data = await response.json();
-      // setGroups(data);
+      const response = await axios.get('/groups', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      });
       
-      // For now, use mock data
-      setTimeout(() => {
-        setGroups(mockGroups);
-        setLoading(false);
-      }, 1000);
+      if (response.data && response.data.groups && Array.isArray(response.data.groups)) {
+        // Normalize the groups to ensure id field is present
+        const normalizedGroups = response.data.groups.map((group: any) => ({
+          ...group,
+          id: group.id || group._id, // Handle both id and _id
+        }));
+        setGroups(normalizedGroups);
+      } else if (response.data && Array.isArray(response.data)) {
+        // Fallback for direct array response
+        const normalizedGroups = response.data.map((group: any) => ({
+          ...group,
+          id: group.id || group._id,
+        }));
+        setGroups(normalizedGroups);
+      } else {
+        console.error('Unexpected response format:', response.data);
+        setGroups([]);
+      }
     } catch (error) {
       console.error('Error fetching groups:', error);
-      Alert.alert('Error', 'Failed to load groups');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          Alert.alert('Error', 'Please log in again');
+        } else {
+          Alert.alert('Error', 'Failed to load groups');
+        }
+      } else {
+        Alert.alert('Error', 'Failed to load groups');
+      }
+      setGroups([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -103,69 +100,178 @@ export default function GroupsScreen() {
     Alert.alert('Group Selected', `Navigating to ${group.name}`);
   };
 
-  const handleCreateGroup = async (groupData: { name: string; description: string }) => {
+  const handleCreateGroup = async (groupData: { name: string; currency: string; imageUrl?: string }) => {
+    if (!accessToken) {
+      Alert.alert('Error', 'Please log in again');
+      return;
+    }
+
     try {
-      // TODO: Replace with actual API call
-      // const response = await fetch('http://localhost:8000/groups', {
-      //   method: 'POST',
-      //   headers: {
-      //     'Authorization': `Bearer ${token}`,
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify(groupData),
-      // });
-      // const newGroup = await response.json();
-      
-      // For now, add to local state
-      const newGroup: Group = {
-        id: Date.now().toString(),
+      const response = await axios.post('/groups', {
         name: groupData.name,
-        description: groupData.description,
-        totalBalance: 0,
-        memberCount: 1,
-        avatar: '✨',
-      };
-      
-      setGroups(prev => [newGroup, ...prev]);
-      setCreateModalVisible(false);
-      Alert.alert('Success', 'Group created successfully!');
+        currency: groupData.currency,
+        imageUrl: groupData.imageUrl || null,
+      }, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      console.log('Create group response:', response.data);
+
+      if (response.data) {
+        // Handle different possible response formats
+        let newGroup;
+        
+        if (response.data.id || response.data._id) {
+          // Direct group response
+          newGroup = {
+            ...response.data,
+            id: response.data.id || response.data._id,
+          };
+        } else if (response.data.group && (response.data.group.id || response.data.group._id)) {
+          // Nested group response
+          newGroup = {
+            ...response.data.group,
+            id: response.data.group.id || response.data.group._id,
+          };
+        } else {
+          console.error('Unexpected create group response format:', response.data);
+          throw new Error('Invalid response format - no group data found');
+        }
+
+        setGroups((prev: Group[]) => [newGroup, ...prev]);
+        setCreateModalVisible(false);
+        Alert.alert('Success', `Group "${newGroup.name}" created successfully!\nJoin code: ${newGroup.joinCode}`);
+      } else {
+        throw new Error('Empty response from server');
+      }
     } catch (error) {
       console.error('Error creating group:', error);
-      Alert.alert('Error', 'Failed to create group');
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          Alert.alert('Error', 'Please log in again');
+        } else if (error.response?.data?.detail) {
+          Alert.alert('Error', error.response.data.detail);
+        } else {
+          Alert.alert('Error', 'Failed to create group');
+        }
+      } else {
+        Alert.alert('Error', 'Failed to create group');
+      }
     }
   };
 
-  const renderGroupItem = ({ item }: { item: Group }) => (
-    <TouchableOpacity
-      style={styles.groupCard}
-      onPress={() => handleGroupPress(item)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.groupAvatar}>
-        <Text style={styles.avatarText}>{item.avatar}</Text>
-      </View>
-      
-      <View style={styles.groupInfo}>
-        <Text style={styles.groupName}>{item.name}</Text>
-        {item.description && (
-          <Text style={styles.groupDescription}>{item.description}</Text>
-        )}
-        <View style={styles.groupStats}>
-          <Text style={styles.memberCount}>
-            <Ionicons name="people" size={14} color="#666" /> {item.memberCount} members
-          </Text>
-          <Text style={[
-            styles.balance,
-            { color: item.totalBalance >= 0 ? '#4CAF50' : '#F44336' }
-          ]}>
-            ${Math.abs(item.totalBalance).toFixed(2)}
+  const handleJoinGroup = async (joinCode: string) => {
+    if (!accessToken) {
+      Alert.alert('Error', 'Please log in again');
+      return;
+    }
+
+    try {
+      const response = await axios.post('/groups/join', {
+        joinCode: joinCode.trim().toUpperCase(),
+      }, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.data && response.data.group) {
+        const joinedGroup = {
+          ...response.data.group,
+          id: response.data.group.id || response.data.group._id, // Handle both id and _id
+        };
+        setGroups((prev: Group[]) => {
+          // Check if group already exists in the list
+          const exists = prev.find(g => g.id === joinedGroup.id);
+          if (exists) {
+            return prev; // Group already in list
+          }
+          return [joinedGroup, ...prev];
+        });
+        Alert.alert('Success', `Joined "${joinedGroup.name}" successfully!`);
+        // Refresh the list to get updated member info
+        fetchGroups();
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (error) {
+      console.error('Error joining group:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          Alert.alert('Error', 'Please log in again');
+        } else if (error.response?.status === 404) {
+          Alert.alert('Error', 'Group not found. Please check the join code.');
+        } else if (error.response?.data?.detail) {
+          Alert.alert('Error', error.response.data.detail);
+        } else {
+          Alert.alert('Error', 'Failed to join group');
+        }
+      } else {
+        Alert.alert('Error', 'Failed to join group');
+      }
+    }
+  };
+
+  const handleJoinGroupPrompt = () => {
+    Alert.prompt(
+      'Join Group',
+      'Enter the group join code:',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Join', 
+          onPress: (code) => {
+            if (code && code.trim()) {
+              handleJoinGroup(code.trim());
+            }
+          }
+        },
+      ],
+      'plain-text',
+      '',
+      'default'
+    );
+  };
+
+  const renderGroupItem = ({ item }: { item: Group }) => {
+    const memberCount = item.members ? item.members.length : 1;
+    const createdDate = new Date(item.createdAt).toLocaleDateString();
+    
+    return (
+      <TouchableOpacity
+        style={styles.groupCard}
+        onPress={() => handleGroupPress(item)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.groupAvatar}>
+          <Text style={styles.avatarText}>
+            {item.imageUrl || item.name.charAt(0).toUpperCase()}
           </Text>
         </View>
-      </View>
-      
-      <Ionicons name="chevron-forward" size={20} color="#ccc" />
-    </TouchableOpacity>
-  );
+        
+        <View style={styles.groupInfo}>
+          <Text style={styles.groupName}>{item.name}</Text>
+          <Text style={styles.groupDescription}>
+            Created on {createdDate} • {item.currency}
+          </Text>
+          <View style={styles.groupStats}>
+            <Text style={styles.memberCount}>
+              <Ionicons name="people" size={14} color="#666" /> {memberCount} member{memberCount !== 1 ? 's' : ''}
+            </Text>
+            <Text style={styles.joinCode}>
+              Code: {item.joinCode}
+            </Text>
+          </View>
+        </View>
+        
+        <Ionicons name="chevron-forward" size={20} color="#ccc" />
+      </TouchableOpacity>
+    );
+  };
 
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
@@ -187,18 +293,26 @@ export default function GroupsScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Groups</Text>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => setCreateModalVisible(true)}
-        >
-          <Ionicons name="add" size={24} color="#2196F3" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={handleJoinGroupPrompt}
+          >
+            <Ionicons name="enter" size={24} color="#2196F3" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.headerButton}
+            onPress={() => setCreateModalVisible(true)}
+          >
+            <Ionicons name="add" size={24} color="#2196F3" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <FlatList
         data={groups}
         renderItem={renderGroupItem}
-        keyExtractor={item => item.id}
+        keyExtractor={(item: Group) => item.id}
         contentContainerStyle={[
           styles.listContainer,
           groups.length === 0 && styles.emptyContainer
@@ -252,6 +366,11 @@ const styles = StyleSheet.create({
   },
   headerButton: {
     padding: 8,
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   listContainer: {
     padding: 16,
@@ -314,6 +433,11 @@ const styles = StyleSheet.create({
   balance: {
     fontSize: 16,
     fontWeight: '600',
+  },
+  joinCode: {
+    fontSize: 14,
+    color: '#2196F3',
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',

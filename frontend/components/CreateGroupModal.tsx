@@ -1,27 +1,37 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 interface CreateGroupModalProps {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; description: string }) => void;
+  onSubmit: (data: { name: string; currency: string; imageUrl?: string }) => void;
 }
 
 export default function CreateGroupModal({ visible, onClose, onSubmit }: CreateGroupModalProps) {
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  const [currency, setCurrency] = useState('USD');
   const [loading, setLoading] = useState(false);
+
+  const currencies = [
+    { code: 'USD', name: 'US Dollar', symbol: '$' },
+    { code: 'EUR', name: 'Euro', symbol: '€' },
+    { code: 'GBP', name: 'British Pound', symbol: '£' },
+    { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
+    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
+    { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+  ];
 
   const handleSubmit = async () => {
     if (!name.trim()) {
@@ -38,7 +48,7 @@ export default function CreateGroupModal({ visible, onClose, onSubmit }: CreateG
     try {
       await onSubmit({
         name: name.trim(),
-        description: description.trim(),
+        currency: currency,
       });
       handleClose();
     } catch (error) {
@@ -50,7 +60,7 @@ export default function CreateGroupModal({ visible, onClose, onSubmit }: CreateG
 
   const handleClose = () => {
     setName('');
-    setDescription('');
+    setCurrency('USD');
     setLoading(false);
     onClose();
   };
@@ -101,19 +111,32 @@ export default function CreateGroupModal({ visible, onClose, onSubmit }: CreateG
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Description (Optional)</Text>
-              <TextInput
-                style={[styles.input, styles.descriptionInput]}
-                placeholder="What's this group for?"
-                value={description}
-                onChangeText={setDescription}
-                maxLength={200}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-                returnKeyType="done"
-              />
-              <Text style={styles.charCount}>{description.length}/200</Text>
+              <Text style={styles.label}>Currency</Text>
+              <View style={styles.currencyContainer}>
+                {currencies.map((curr) => (
+                  <TouchableOpacity
+                    key={curr.code}
+                    style={[
+                      styles.currencyOption,
+                      currency === curr.code && styles.selectedCurrency,
+                    ]}
+                    onPress={() => setCurrency(curr.code)}
+                  >
+                    <Text style={[
+                      styles.currencySymbol,
+                      currency === curr.code && styles.selectedCurrencyText,
+                    ]}>
+                      {curr.symbol}
+                    </Text>
+                    <Text style={[
+                      styles.currencyCode,
+                      currency === curr.code && styles.selectedCurrencyText,
+                    ]}>
+                      {curr.code}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           </View>
 
@@ -235,6 +258,38 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'right',
     marginTop: 4,
+  },
+  currencyContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  currencyOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#e1e8ed',
+    borderRadius: 8,
+    padding: 12,
+    minWidth: 80,
+  },
+  selectedCurrency: {
+    backgroundColor: '#2196F3',
+    borderColor: '#2196F3',
+  },
+  currencySymbol: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a1a1a',
+    marginRight: 4,
+  },
+  currencyCode: {
+    fontSize: 14,
+    color: '#666',
+  },
+  selectedCurrencyText: {
+    color: 'white',
   },
   buttonContainer: {
     flexDirection: 'row',
