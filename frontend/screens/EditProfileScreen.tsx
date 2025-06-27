@@ -5,18 +5,26 @@ import { useAuth } from '../contexts/AuthContext';
 import { UserProfile, UserProfileUpdate } from '../types/user';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function EditProfileScreen({ navigation }: any) {
+interface EditProfileScreenProps {
+  navigation: any;
+  route: {
+    params: {
+      profile: UserProfile;
+    };
+  };
+}
+
+export default function EditProfileScreen({ navigation, route }: EditProfileScreenProps) {
   const { accessToken, user } = useAuth();
-  // Fallbacks for user fields
+  const { profile } = route.params;
   const initialForm: UserProfileUpdate = {
-    name: user?.name || '',
-    imageUrl: user?.imageUrl || '',
-    currency: user?.currency || '',
+    name: profile?.name || user?.name || '',
+    imageUrl: profile?.imageUrl || user?.imageUrl || '',
+    currency: profile?.currency || user?.currency || '',
   };
   const [form, setForm] = useState<UserProfileUpdate>(initialForm);
   const [loading, setLoading] = useState(false);
 
-  // Check if any field has changed
   const isChanged = useMemo(() => {
     return (
       form.name !== initialForm.name ||
@@ -32,7 +40,7 @@ export default function EditProfileScreen({ navigation }: any) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const response = await axios.patch<{ user: UserProfile }>('/users/me', form, {
+      await axios.patch<{ user: UserProfile }>('/users/me', form, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       Alert.alert('Success', 'Profile updated successfully');
@@ -55,7 +63,7 @@ export default function EditProfileScreen({ navigation }: any) {
             <Ionicons name="person" size={40} color="#2196F3" />
           </View>
         )}
-        <Text style={styles.email}>{user?.email || ''}</Text>
+        <Text style={styles.email}>{profile?.email || user?.email || ''}</Text>
       </View>
       <Text style={styles.label}>Name</Text>
       <TextInput

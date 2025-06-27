@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
     ScrollView,
@@ -6,10 +6,12 @@ import {
     Text,
     TouchableOpacity,
     View,
+    Image,
 } from 'react-native';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { UserProfile } from '../types/user';
+import { useFocusEffect } from '@react-navigation/native';
 
 export default function AccountScreen({ navigation }: any) {
   const { logout, user, accessToken } = useAuth();
@@ -17,24 +19,33 @@ export default function AccountScreen({ navigation }: any) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch user profile on mount
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await axios.get<UserProfile>('/users/me', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        setProfile(response.data);
-      } catch (err: any) {
-        setError('Failed to load profile');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProfile();
+  // Fetch user profile
+  const fetchProfile = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await axios.get<UserProfile>('/users/me', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setProfile(response.data);
+    } catch (err: any) {
+      setError('Failed to load profile');
+    } finally {
+      setLoading(false);
+    }
   }, [accessToken]);
+
+  // Fetch on mount
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  // Fetch on focus (after returning from edit)
+  useFocusEffect(
+    useCallback(() => {
+      fetchProfile();
+    }, [fetchProfile])
+  );
 
   const handleLogout = () => {
     logout();
@@ -64,9 +75,13 @@ export default function AccountScreen({ navigation }: any) {
       <ScrollView style={styles.content}>
         <View style={styles.section}>
           <View style={styles.profileSection}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={40} color="#2196F3" />
-            </View>
+            {profile?.imageUrl ? (
+              <Image source={{ uri: profile.imageUrl }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatar}>
+                <Ionicons name="person" size={40} color="#2196F3" />
+              </View>
+            )}
             <Text style={styles.username}>{profile?.name || user?.name || 'User'}</Text>
             <Text style={styles.email}>{profile?.email || user?.email || ''}</Text>
             {profile?.currency && (
@@ -76,7 +91,10 @@ export default function AccountScreen({ navigation }: any) {
         </View>
 
         <View style={styles.section}>
-          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('EditProfile')}>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('EditProfile', { profile })}
+          >
             <Ionicons name="person-outline" size={24} color="#666" />
             <Text style={styles.menuText}>Edit Profile</Text>
             <Ionicons name="chevron-forward" size={20} color="#ccc" />
