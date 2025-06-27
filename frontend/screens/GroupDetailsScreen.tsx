@@ -11,6 +11,7 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import AddExpenseModal from '../components/AddExpenseModal';
 import { useAuth } from '../contexts/AuthContext';
 
 interface GroupMember {
@@ -57,6 +58,7 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showAddExpenseModal, setShowAddExpenseModal] = useState(false);
 
   useEffect(() => {
     fetchGroupDetails();
@@ -112,6 +114,31 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
       }
     } catch (error) {
       console.error('Error fetching expenses:', error);
+      if (axios.isAxiosError(error) && error.response?.status === 405) {
+        // Expense API not implemented yet, use mock data for demo
+        setExpenses([
+          {
+            id: '1',
+            description: 'Dinner at restaurant',
+            amount: 150.00,
+            currency: group?.currency || 'USD',
+            paidBy: 'You',
+            splitAmong: ['user1', 'user2'],
+            createdAt: new Date().toISOString(),
+            groupId: groupId,
+          },
+          {
+            id: '2',
+            description: 'Groceries',
+            amount: 85.50,
+            currency: group?.currency || 'USD',
+            paidBy: 'John',
+            splitAmong: ['user1', 'user2', 'user3'],
+            createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+            groupId: groupId,
+          }
+        ]);
+      }
       // Don't show error for expenses as they might not exist yet
     } finally {
       setLoading(false);
@@ -125,8 +152,12 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
   };
 
   const handleAddExpense = () => {
-    // TODO: Navigate to add expense screen
-    Alert.alert('Add Expense', 'Navigate to add expense screen (TODO)');
+    setShowAddExpenseModal(true);
+  };
+
+  const handleExpenseAdded = () => {
+    // Refresh expenses after adding a new one
+    fetchExpenses();
   };
 
   const handleSettleUp = () => {
@@ -283,6 +314,16 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
       <TouchableOpacity style={styles.fab} onPress={handleAddExpense}>
         <Ionicons name="add" size={28} color="white" />
       </TouchableOpacity>
+
+      {/* Add Expense Modal */}
+      {group && (
+        <AddExpenseModal
+          visible={showAddExpenseModal}
+          onClose={() => setShowAddExpenseModal(false)}
+          group={group}
+          onExpenseAdded={handleExpenseAdded}
+        />
+      )}
     </View>
   );
 }
