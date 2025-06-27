@@ -2,7 +2,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-const API_URL = 'https://splitwiser-production.up.railway.app'; // Replace with your actual backend URL
+const API_URL = 'https://splitwiser-production.up.railway.app'; // Use production API
 
 // Define the shape of our authentication context
 type AuthContextType = {
@@ -42,47 +42,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     axios.defaults.baseURL = API_URL;
 
     // Set up request interceptor
-    axios.interceptors.request.use(
-      (config) => {
+    const requestInterceptor = axios.interceptors.request.use(
+      (config: any) => {
         if (accessToken) {
           config.headers.Authorization = `Bearer ${accessToken}`;
         }
         return config;
       },
-      (error) => Promise.reject(error)
+      (error: any) => Promise.reject(error)
     );
 
     // Set up response interceptor for token refresh
-    axios.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
-        
-        // If 401 response and not already retrying
-        if (error.response?.status === 401 && !originalRequest._retry && refreshToken) {
-          originalRequest._retry = true;
-
-          try {
-            // Call refresh token endpoint
-            const response = await axios.post('/auth/refresh', { refresh_token: refreshToken });
-            
-            // Update tokens
-            setAccessToken(response.data.access_token);
-            if (response.data.refresh_token) {
-              setRefreshToken(response.data.refresh_token);
-              await SecureStore.setItemAsync('refreshToken', response.data.refresh_token);
-            }
-
-            // Retry the original request with new token
-            originalRequest.headers.Authorization = `Bearer ${response.data.access_token}`;
-            return axios(originalRequest);
-          } catch (refreshError) {
-            // If refresh fails, log out the user
-            logout();
-            return Promise.reject(refreshError);
-          }
-        }
-
+    const responseInterceptor = axios.interceptors.response.use(
+      (response: any) => response,
+      async (error: any) => {
+        console.error('Authentication error:', error);
         return Promise.reject(error);
       }
     );
@@ -109,15 +83,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       } catch (error) {
-        // Clear any invalid tokens
-        await SecureStore.deleteItemAsync('refreshToken');
+        // Clear any invalid tokens and log the error
+        console.error('Token loading failed:', error);
+        try {
+          await SecureStore.deleteItemAsync('refreshToken');
+        } catch (deleteError) {
+          console.error('Error deleting token:', deleteError);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadTokens();
-  }, []);  // Email/Password login
+
+    // Cleanup interceptors on unmount
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+      axios.interceptors.response.eject(responseInterceptor);
+    };
+  }, []);
+
+  // Email/Password login
   const login = async (credentials: { email: string; password: string }) => {
     setLoading(true);
     try {
@@ -132,12 +119,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Save refresh token securely
       await SecureStore.setItemAsync('refreshToken', response.data.refresh_token);
     } catch (error) {
-      // Re-throw the error so the UI can handle it
+      console.error('Login error:', error);
       throw error;
     } finally {
       setLoading(false);
     }
-  };  // Email/Password signup
+  };
+
+  // Email/Password signup
   const signup = async (userData: { email: string; password: string; name: string }) => {
     setLoading(true);
     try {
@@ -152,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Save refresh token securely
       await SecureStore.setItemAsync('refreshToken', response.data.refresh_token);
     } catch (error) {
-      // Re-throw the error so the UI can handle it
+      console.error('Signup error:', error);
       throw error;
     } finally {
       setLoading(false);
@@ -161,15 +150,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Logout
   const logout = async () => {
-    // Clear auth state
-    setAccessToken(null);
-    setRefreshToken(null);
-    setUser(null);
-    setIsAuthenticated(false);
-    
-    // Clear secure storage
-    await SecureStore.deleteItemAsync('refreshToken');
+    try {
+      // Clear auth state
+      setAccessToken(null);
+      setRefreshToken(null);
+      setUser(null);
+      setIsAuthenticated(false);
+      
+      // Clear secure storage
+      await SecureStore.deleteItemAsync('refreshToken');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
+
   // Provide auth context to children
   return (
     <AuthContext.Provider

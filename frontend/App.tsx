@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AccountScreen from './screens/AccountScreen';
@@ -19,18 +20,26 @@ function MainTabs() {
     <Tab.Navigator
       screenOptions={({ route }: { route: any }) => ({
         tabBarIcon: ({ focused, color, size }: { focused: boolean; color: string; size: number }) => {
-          let iconName: keyof typeof Ionicons.glyphMap;
+          let iconName: keyof typeof Ionicons.glyphMap = 'home'; // Default icon
 
-          if (route.name === 'Groups') {
-            iconName = focused ? 'people' : 'people-outline';
-          } else if (route.name === 'Friends') {
-            iconName = focused ? 'person-add' : 'person-add-outline';
-          } else if (route.name === 'Activity') {
-            iconName = focused ? 'pulse' : 'pulse-outline';
-          } else if (route.name === 'Account') {
-            iconName = focused ? 'person-circle' : 'person-circle-outline';
-          } else {
-            iconName = 'home';
+          // Safety check for route and route.name
+          if (route && route.name) {
+            switch (route.name) {
+              case 'Groups':
+                iconName = focused ? 'people' : 'people-outline';
+                break;
+              case 'Friends':
+                iconName = focused ? 'person-add' : 'person-add-outline';
+                break;
+              case 'Activity':
+                iconName = focused ? 'pulse' : 'pulse-outline';
+                break;
+              case 'Account':
+                iconName = focused ? 'person-circle' : 'person-circle-outline';
+                break;
+              default:
+                iconName = 'home';
+            }
           }
 
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -61,7 +70,17 @@ function MainTabs() {
 }
 
 function AppNavigator() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
+
+  // Show loading screen while authentication is being checked
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2196F3" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
 
   return (
     <Stack.Navigator>
@@ -92,3 +111,17 @@ export default function App() {
     </AuthProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+});
