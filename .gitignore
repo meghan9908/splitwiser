@@ -73,7 +73,9 @@ service-account*.json
 .vscode/settings.json
 .idea/
 .vscode/
+.idx/
 
 # Logs
 *.log
 logs/
+
