@@ -31,15 +31,26 @@ interface Group {
   members: GroupMember[];
 }
 
+interface ExpenseSplit {
+  userId: string;
+  amount: number;
+  percentage?: number;
+  type?: string;
+}
+
 interface Expense {
   id: string;
   description: string;
   amount: number;
-  currency: string;
-  paidBy: string;
-  splitAmong: string[];
+  currency?: string;
+  paidBy?: string;
+  splits: ExpenseSplit[];
+  splitType: string;
   createdAt: string;
   groupId: string;
+  createdBy: string;
+  tags?: string[];
+  receiptUrls?: string[];
 }
 
 interface GroupDetailsScreenProps {
@@ -103,43 +114,84 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
     if (!accessToken) return;
 
     try {
-      const response = await axios.get(`/expenses?groupId=${groupId}`, {
+      const response = await axios.get(`/groups/${groupId}/expenses`, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
 
+      console.log('Fetched expenses:', response.data);
+
       if (response.data && response.data.expenses) {
-        setExpenses(response.data.expenses);
+        // Normalize the expenses data
+        const normalizedExpenses = response.data.expenses.map((expense: any) => ({
+          ...expense,
+          id: expense.id || expense._id,
+          splits: expense.splits || [],
+          currency: expense.currency || group?.currency || 'USD',
+        }));
+        setExpenses(normalizedExpenses);
+      } else if (response.data && Array.isArray(response.data)) {
+        // Handle direct array response
+        const normalizedExpenses = response.data.map((expense: any) => ({
+          ...expense,
+          id: expense.id || expense._id,
+          splits: expense.splits || [],
+          currency: expense.currency || group?.currency || 'USD',
+        }));
+        setExpenses(normalizedExpenses);
+      } else {
+        setExpenses([]);
       }
     } catch (error) {
       console.error('Error fetching expenses:', error);
-      if (axios.isAxiosError(error) && error.response?.status === 405) {
-        // Expense API not implemented yet, use mock data for demo
-        setExpenses([
-          {
-            id: '1',
-            description: 'Dinner at restaurant',
-            amount: 150.00,
-            currency: group?.currency || 'USD',
-            paidBy: 'You',
-            splitAmong: ['user1', 'user2'],
-            createdAt: new Date().toISOString(),
-            groupId: groupId,
-          },
-          {
-            id: '2',
-            description: 'Groceries',
-            amount: 85.50,
-            currency: group?.currency || 'USD',
-            paidBy: 'John',
-            splitAmong: ['user1', 'user2', 'user3'],
-            createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
-            groupId: groupId,
-          }
-        ]);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 405) {
+          // Expense API not implemented yet, use mock data for demo
+          setExpenses([
+            {
+              id: '1',
+              description: 'Dinner at restaurant',
+              amount: 150.00,
+              currency: group?.currency || 'USD',
+              paidBy: 'You',
+              splits: [
+                { userId: 'user1', amount: 75 },
+                { userId: 'user2', amount: 75 }
+              ],
+              splitType: 'equal',
+              createdAt: new Date().toISOString(),
+              groupId: groupId,
+              createdBy: 'current-user',
+            },
+            {
+              id: '2',
+              description: 'Groceries',
+              amount: 85.50,
+              currency: group?.currency || 'USD',
+              paidBy: 'John',
+              splits: [
+                { userId: 'user1', amount: 28.5 },
+                { userId: 'user2', amount: 28.5 },
+                { userId: 'user3', amount: 28.5 }
+              ],
+              splitType: 'equal',
+              createdAt: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+              groupId: groupId,
+              createdBy: 'member-1',
+            }
+          ]);
+        } else if (error.response?.status === 404) {
+          // No expenses yet
+          setExpenses([]);
+        } else {
+          console.error('Unexpected error fetching expenses:', error);
+          setExpenses([]);
+        }
+      } else {
+        setExpenses([]);
       }
-      // Don't show error for expenses as they might not exist yet
+      // Don't show error alert for expenses as they might not exist yet
     } finally {
       setLoading(false);
     }
@@ -171,6 +223,7 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
 
   const renderExpenseItem = ({ item }: { item: Expense }) => {
     const date = new Date(item.createdAt).toLocaleDateString();
+    const splitCount = item.splits ? item.splits.length : 0;
     
     return (
       <TouchableOpacity style={styles.expenseCard} activeOpacity={0.7}>
@@ -182,15 +235,15 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
           <Text style={styles.expenseDescription}>{item.description}</Text>
           <Text style={styles.expenseDate}>{date}</Text>
           <Text style={styles.expenseSplit}>
-            Split among {item.splitAmong.length} member{item.splitAmong.length !== 1 ? 's' : ''}
+            Split among {splitCount} member{splitCount !== 1 ? 's' : ''}
           </Text>
         </View>
         
         <View style={styles.expenseAmount}>
           <Text style={styles.amountText}>
-            {group?.currency} {item.amount.toFixed(2)}
+            {item.currency || group?.currency} {item.amount.toFixed(2)}
           </Text>
-          <Text style={styles.paidByText}>Paid by {item.paidBy}</Text>
+          <Text style={styles.paidByText}>Paid by {item.paidBy || 'Unknown'}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -199,7 +252,7 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
   const renderGroupSummary = () => {
     if (!group) return null;
 
-    const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const totalExpenses = expenses.reduce((sum: number, expense: Expense) => sum + expense.amount, 0);
     const memberCount = group.members.length;
 
     return (
@@ -295,7 +348,7 @@ export default function GroupDetailsScreen({ route, navigation }: GroupDetailsSc
             <FlatList
               data={expenses.slice(0, 5)} // Show only recent 5
               renderItem={renderExpenseItem}
-              keyExtractor={item => item.id}
+              keyExtractor={(item: Expense) => item.id}
               scrollEnabled={false}
             />
           )}
