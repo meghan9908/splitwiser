@@ -162,7 +162,7 @@ def test_expense_apis():
             user_balances[payer] -= amount  # Payer is owed money
         
         debtors = [[uid, bal] for uid, bal in user_balances.items() if bal > 0.01]
-        creditors = [[uid, bal] for uid, bal in user_balances.items() if bal < -0.01]
+        creditors = [[uid, -bal] for uid, bal in user_balances.items() if bal < -0.01]
         
         debtors.sort(key=lambda x: x[1], reverse=True)
         creditors.sort(key=lambda x: x[1], reverse=True)
@@ -193,22 +193,85 @@ def test_expense_apis():
         
         return optimized
     
-    # Test scenario: A->B $100, B->C $50, A->C $25
+    # Test scenario: Better example for advanced algorithm
+    # Alice paid $100 for Bob (Bob owes Alice $100)
+    # Bob paid $100 for Charlie (Charlie owes Bob $100)  
+    # Expected optimized: Charlie pays Alice $100 directly
     test_settlements = [
-        {'payerId': 'Alice', 'payeeId': 'Bob', 'amount': 100},
-        {'payerId': 'Bob', 'payeeId': 'Charlie', 'amount': 50},
-        {'payerId': 'Alice', 'payeeId': 'Charlie', 'amount': 25}
+        {'payerId': 'Alice', 'payeeId': 'Bob', 'amount': 100},      # Bob owes Alice $100
+        {'payerId': 'Bob', 'payeeId': 'Charlie', 'amount': 100}     # Charlie owes Bob $100
     ]
+    
+    print(f"   Test scenario:")
+    print(f"     Alice paid for Bob: Bob owes Alice $100")
+    print(f"     Bob paid for Charlie: Charlie owes Bob $100")
+    print(f"     Expected optimization: Charlie pays Alice $100 directly")
     
     normal_result = calculate_normal_settlements(test_settlements)
     advanced_result = calculate_advanced_settlements(test_settlements)
     
     print(f"   Original transactions: {len(test_settlements)}")
     print(f"   Normal algorithm: {len(normal_result)} transactions")
-    print(f"   Advanced algorithm: {len(advanced_result)} transactions")
+    for settlement in normal_result:
+        print(f"     {settlement['from']} pays {settlement['to']} ${settlement['amount']:.2f}")
     
+    print(f"   Advanced algorithm: {len(advanced_result)} transactions")
     for settlement in advanced_result:
         print(f"     {settlement['from']} pays {settlement['to']} ${settlement['amount']:.2f}")
+    
+    # Debug the algorithm
+    print(f"\n🔍 Advanced Algorithm Debug:")
+    user_balances = {}
+    for settlement in test_settlements:
+        payer = settlement['payerId']
+        payee = settlement['payeeId']
+        amount = settlement['amount']
+        
+        if payee not in user_balances:
+            user_balances[payee] = 0
+        if payer not in user_balances:
+            user_balances[payer] = 0
+            
+        user_balances[payee] += amount  # Payee owes money
+        user_balances[payer] -= amount  # Payer is owed money
+    
+    print(f"   User balances: {user_balances}")
+    debtors = [[uid, bal] for uid, bal in user_balances.items() if bal > 0.01]
+    creditors = [[uid, -bal] for uid, bal in user_balances.items() if bal < -0.01]
+    print(f"   Debtors: {debtors}")
+    print(f"   Creditors: {creditors}")
+    
+    # Manually run the two-pointer algorithm with debug
+    optimized_debug = []
+    i, j = 0, 0
+    
+    while i < len(debtors) and j < len(creditors):
+        debtor_id, debt_amount = debtors[i]
+        creditor_id, credit_amount = creditors[j]
+        
+        print(f"   Processing: {debtor_id} owes ${debt_amount}, {creditor_id} owed ${credit_amount}")
+        
+        settlement_amount = min(debt_amount, credit_amount)
+        
+        if settlement_amount > 0.01:
+            optimized_debug.append({
+                'from': debtor_id,
+                'to': creditor_id,
+                'amount': settlement_amount
+            })
+            print(f"   Adding settlement: {debtor_id} -> {creditor_id} ${settlement_amount}")
+        
+        debtors[i][1] -= settlement_amount
+        creditors[j][1] -= settlement_amount
+        
+        print(f"   After settlement: {debtor_id} remaining: ${debtors[i][1]}, {creditor_id} remaining: ${creditors[j][1]}")
+        
+        if debtors[i][1] <= 0.01:
+            i += 1
+        if creditors[j][1] <= 0.01:
+            j += 1
+    
+    print(f"   Manual debug result: {optimized_debug}")
     
     print("\n🔧 Testing PATCH Endpoint Specifically:")
     print("   1. First, create an expense using POST /groups/{group_id}/expenses")
