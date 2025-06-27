@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AccountScreen from './screens/AccountScreen';
@@ -27,20 +28,20 @@ function GroupsStack() {
       />
       <Stack.Screen 
         name="GroupDetails" 
-        component={GroupDetailsScreen} 
+        component={GroupDetailsScreen as React.ComponentType<{}>} 
         options={{ 
           headerShown: true,
           title: 'Group Details',
-          headerBackTitleVisible: false,
+          headerBackVisible: true,
         }}
       />
       <Stack.Screen 
         name="GroupSettings" 
-        component={GroupSettingsScreen} 
+        component={GroupSettingsScreen as React.ComponentType<{}>} 
         options={{ 
           headerShown: true,
           title: 'Group Settings',
-          headerBackTitleVisible: false,
+          headerBackVisible: true,
         }}
       />
     </Stack.Navigator>
@@ -136,10 +137,14 @@ function AppNavigator() {
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <AppNavigator />
-        <StatusBar style="auto" />
-      </NavigationContainer>
+      <SafeAreaProvider>
+        <SafeAreaView style={{ flex: 1 }}>
+          <NavigationContainer>
+            <AppNavigator />
+            <StatusBar style="auto" />
+          </NavigationContainer>
+        </SafeAreaView>
+      </SafeAreaProvider>
     </AuthProvider>
   );
 }
