@@ -3,6 +3,7 @@ export interface UserProfile {
   name: string;
   email: string;
   imageUrl?: string;
+  avatar?: string;
   currency: string;
   createdAt: string;
   updatedAt: string;

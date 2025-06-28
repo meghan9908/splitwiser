@@ -27,6 +27,7 @@ export default function AccountScreen({ navigation }: any) {
       const response = await axios.get<UserProfile>('/users/me', {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      response.data.imageUrl = response.data.avatar; // Fallback to avatar
       setProfile(response.data);
     } catch (err: any) {
       setError('Failed to load profile');
