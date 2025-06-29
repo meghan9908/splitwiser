@@ -1,6 +1,7 @@
 # Enhanced Dependabot configuration for SplitWiser
 # Monitors multiple package ecosystems for security and version updates
 # Documentation: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Note: Codecov uploads are skipped for Dependabot PRs due to limited secret access
 
 version: 2
 updates:
