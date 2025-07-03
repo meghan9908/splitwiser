@@ -26,6 +26,7 @@ const AddExpenseScreen: React.FC = () => {
   );
   
   const { isLoading } = useAppSelector(state => state.expenses);
+  const { user } = useAppSelector(state => state.auth);
 
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
@@ -53,8 +54,11 @@ const AddExpenseScreen: React.FC = () => {
     const numericAmount = parseFloat(amount);
     
     try {
-      // Assuming the current user is the only payer in this simplified version
-      const payerId = "current_user_id"; // This would come from auth context in real app
+      setError(null); // Clear any previous errors
+      
+      // Use the user variable from component scope instead of trying to call useAppSelector here
+      // For this example, use a default ID if user is not available
+      const payerId = user?._id || group?.createdBy || "current_user_id";
       
       // Create equal splits for all members (simplified)
       const members = group?.members || [];
@@ -66,7 +70,7 @@ const AddExpenseScreen: React.FC = () => {
         category,
         date,
         payers: [{ userId: payerId, amount: numericAmount }],
-        splits: members.map(member => ({
+        splits: members.map((member: { userId: string }) => ({
           userId: member.userId,
           amount: splitMethod === 'equal' ? splitAmount : 0 // In real app, custom splits would be handled
         }))
@@ -76,7 +80,33 @@ const AddExpenseScreen: React.FC = () => {
       navigation.goBack();
     } catch (error) {
       console.error('Failed to create expense:', error);
-      setError('Failed to create expense. Please try again.');
+      
+      // Handle different error formats
+      let errorMessage = 'Failed to create expense. Please try again.';
+      
+      if (typeof error === 'object' && error !== null) {
+        if ('message' in error && typeof error.message === 'string' && error.message !== '[object Object]') {
+          errorMessage = error.message;
+        } else if ('details' in error && error.details) {
+          try {
+            // Try to parse the details if it's a stringified JSON
+            const parsedDetails = typeof error.details === 'string' 
+              ? JSON.parse(error.details) 
+              : error.details;
+            
+            if (parsedDetails.detail) {
+              errorMessage = Array.isArray(parsedDetails.detail) 
+                ? parsedDetails.detail[0]?.msg || errorMessage
+                : parsedDetails.detail;
+            }
+          } catch (e) {
+            // If parsing fails, use the string representation
+            errorMessage = String(error.details) || errorMessage;
+          }
+        }
+      }
+      
+      setError(errorMessage);
     }
   };
 

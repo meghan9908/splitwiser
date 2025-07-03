@@ -23,9 +23,18 @@ export const fetchGroupExpenses = createAsyncThunk(
       return await apiService.getGroupExpenses(groupId);
     } catch (error) {
       if (error instanceof ApiErrorClass) {
-        return rejectWithValue(error.message);
+        // Make sure we return serializable data
+        return rejectWithValue({
+          message: error.message,
+          status: error.status,
+          details: error.details ? JSON.stringify(error.details) : undefined
+        });
       }
-      return rejectWithValue('Failed to fetch group expenses');
+      return rejectWithValue({
+        message: 'Failed to fetch group expenses',
+        status: 0,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 );
@@ -50,9 +59,18 @@ export const createExpense = createAsyncThunk(
       return await apiService.createExpense(groupId, expenseData);
     } catch (error) {
       if (error instanceof ApiErrorClass) {
-        return rejectWithValue(error.message);
+        // Make sure we return serializable data
+        return rejectWithValue({
+          message: error.message,
+          status: error.status,
+          details: error.details ? JSON.stringify(error.details) : undefined
+        });
       }
-      return rejectWithValue('Failed to create expense');
+      return rejectWithValue({
+        message: 'Failed to create expense',
+        status: 0,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 );
@@ -84,7 +102,8 @@ const expensesSlice = createSlice({
       })
       .addCase(fetchGroupExpenses.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as { message: string } | undefined;
+        state.error = payload?.message || 'Failed to fetch expenses';
       });
 
     // Create expense
@@ -99,7 +118,8 @@ const expensesSlice = createSlice({
       })
       .addCase(createExpense.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as { message: string } | undefined;
+        state.error = payload?.message || 'Failed to create expense';
       });
   },
 });

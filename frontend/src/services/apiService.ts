@@ -161,7 +161,9 @@ class ApiService {
 
   // Expenses endpoints
   async getGroupExpenses(groupId: string) {
-    return this.request(API_CONFIG.ENDPOINTS.GROUP_EXPENSES(groupId));
+    const response = await this.request(API_CONFIG.ENDPOINTS.GROUP_EXPENSES(groupId));
+    // Handle potential response formats: array directly or wrapped in a property
+    return Array.isArray(response) ? response : response.expenses || response;
   }
 
   async createExpense(groupId: string, expenseData: {
@@ -172,10 +174,13 @@ class ApiService {
     payers: Array<{ userId: string; amount: number }>;
     splits: Array<{ userId: string; amount: number }>;
   }) {
-    return this.request(API_CONFIG.ENDPOINTS.GROUP_EXPENSES(groupId), {
+    const response = await this.request(API_CONFIG.ENDPOINTS.GROUP_EXPENSES(groupId), {
       method: 'POST',
       body: JSON.stringify(expenseData),
     });
+    
+    // Handle the potential wrapping of response in an 'expense' property
+    return response.expense || response;
   }
 
   // Clear tokens (simplified without SecureStore for now)
