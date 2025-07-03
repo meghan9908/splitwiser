@@ -26,7 +26,14 @@ export const store = configureStore({
           'expenses/fetchExpenses/rejected'
         ],
         // Ignore these paths for serialization checks
-        ignoredPaths: ['auth.error', 'groups.error', 'expenses.error'],
+        ignoredPaths: [
+          'auth.error', 
+          'groups.error', 
+          'expenses.error',
+          'payload.details',
+          'payload.error',
+          'error.details'
+        ],
         // Increase the threshold for development environment
         warnAfter: 100,
       },

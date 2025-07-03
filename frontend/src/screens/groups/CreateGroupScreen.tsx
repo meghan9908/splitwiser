@@ -30,16 +30,38 @@ const CreateGroupScreen: React.FC = () => {
     }
 
     try {
+      setError(null); // Clear any previous errors
       await dispatch(createGroup({ name, currency })).unwrap();
       navigation.goBack();
     } catch (error) {
       console.error('Failed to create group:', error);
-      // Handle the error with more specific feedback if available
-      if (typeof error === 'object' && error !== null && 'message' in error) {
-        setError(error.message as string || 'Failed to create group. Please try again.');
-      } else {
-        setError('Failed to create group. Please try again.');
+      
+      // Handle different error formats
+      let errorMessage = 'Failed to create group. Please try again.';
+      
+      if (typeof error === 'object' && error !== null) {
+        if ('message' in error && typeof error.message === 'string') {
+          errorMessage = error.message;
+        } else if ('details' in error && error.details) {
+          try {
+            // Try to parse the details if it's a stringified JSON
+            const parsedDetails = typeof error.details === 'string' 
+              ? JSON.parse(error.details) 
+              : error.details;
+            
+            if (parsedDetails.detail) {
+              errorMessage = Array.isArray(parsedDetails.detail) 
+                ? parsedDetails.detail[0]?.msg || errorMessage
+                : parsedDetails.detail;
+            }
+          } catch (e) {
+            // If parsing fails, use the string representation
+            errorMessage = String(error.details) || errorMessage;
+          }
+        }
       }
+      
+      setError(errorMessage);
     }
   };
 

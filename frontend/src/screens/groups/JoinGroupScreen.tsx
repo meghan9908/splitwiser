@@ -28,16 +28,38 @@ const JoinGroupScreen: React.FC = () => {
     }
 
     try {
+      setError(null); // Clear any previous errors
       await dispatch(joinGroup(joinCode)).unwrap();
       navigation.goBack();
     } catch (error) {
       console.error('Failed to join group:', error);
-      // Handle the error with more specific feedback if available
-      if (typeof error === 'object' && error !== null && 'message' in error) {
-        setError(error.message as string || 'Invalid join code or you are already a member of this group.');
-      } else {
-        setError('Invalid join code or you are already a member of this group.');
+      
+      // Handle different error formats
+      let errorMessage = 'Invalid join code or you are already a member of this group.';
+      
+      if (typeof error === 'object' && error !== null) {
+        if ('message' in error && typeof error.message === 'string' && error.message !== '[object Object]') {
+          errorMessage = error.message;
+        } else if ('details' in error && error.details) {
+          try {
+            // Try to parse the details if it's a stringified JSON
+            const parsedDetails = typeof error.details === 'string' 
+              ? JSON.parse(error.details) 
+              : error.details;
+            
+            if (parsedDetails.detail) {
+              errorMessage = Array.isArray(parsedDetails.detail) 
+                ? parsedDetails.detail[0]?.msg || errorMessage
+                : parsedDetails.detail;
+            }
+          } catch (e) {
+            // If parsing fails, use the string representation
+            errorMessage = String(error.details) || errorMessage;
+          }
+        }
       }
+      
+      setError(errorMessage);
     }
   };
 

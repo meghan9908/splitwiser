@@ -128,25 +128,35 @@ class ApiService {
 
   // Groups endpoints
   async getGroups() {
-    return this.request(API_CONFIG.ENDPOINTS.GROUPS);
+    const response = await this.request(API_CONFIG.ENDPOINTS.GROUPS);
+    // Handle potential response formats: array directly or wrapped in a property
+    return Array.isArray(response) ? response : response.groups || response;
   }
 
   async createGroup(name: string, currency: string = 'USD') {
-    return this.request(API_CONFIG.ENDPOINTS.GROUPS, {
+    const response = await this.request(API_CONFIG.ENDPOINTS.GROUPS, {
       method: 'POST',
       body: JSON.stringify({ name, currency }),
     });
+    
+    // Handle the potential wrapping of response in a 'group' property
+    return response.group || response;
   }
 
   async getGroupDetails(groupId: string) {
-    return this.request(API_CONFIG.ENDPOINTS.GROUP_DETAILS(groupId));
+    const response = await this.request(API_CONFIG.ENDPOINTS.GROUP_DETAILS(groupId));
+    // Handle potential wrapping of response in a 'group' property
+    return response.group || response;
   }
 
   async joinGroup(joinCode: string) {
-    return this.request(API_CONFIG.ENDPOINTS.JOIN_GROUP, {
+    const response = await this.request(API_CONFIG.ENDPOINTS.JOIN_GROUP, {
       method: 'POST',
-      body: JSON.stringify({ join_code: joinCode }),
+      body: JSON.stringify({ joinCode }),
     });
+    
+    // Handle the potential wrapping of response in a 'group' property
+    return response.group || response;
   }
 
   // Expenses endpoints
