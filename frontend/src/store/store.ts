@@ -17,7 +17,13 @@ export const store = configureStore({
           'persist/PERSIST',
           'auth/loginUser/rejected',
           'auth/signupUser/rejected',
-          'auth/loginWithGoogle/rejected'
+          'auth/loginWithGoogle/rejected',
+          'groups/createGroup/rejected',
+          'groups/fetchGroups/rejected',
+          'groups/fetchGroupDetails/rejected',
+          'groups/joinGroup/rejected',
+          'expenses/createExpense/rejected',
+          'expenses/fetchExpenses/rejected'
         ],
         // Ignore these paths for serialization checks
         ignoredPaths: ['auth.error', 'groups.error', 'expenses.error'],

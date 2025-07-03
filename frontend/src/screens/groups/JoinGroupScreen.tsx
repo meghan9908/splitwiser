@@ -32,7 +32,12 @@ const JoinGroupScreen: React.FC = () => {
       navigation.goBack();
     } catch (error) {
       console.error('Failed to join group:', error);
-      setError('Invalid join code or you are already a member of this group.');
+      // Handle the error with more specific feedback if available
+      if (typeof error === 'object' && error !== null && 'message' in error) {
+        setError(error.message as string || 'Invalid join code or you are already a member of this group.');
+      } else {
+        setError('Invalid join code or you are already a member of this group.');
+      }
     }
   };
 

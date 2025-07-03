@@ -34,7 +34,12 @@ const CreateGroupScreen: React.FC = () => {
       navigation.goBack();
     } catch (error) {
       console.error('Failed to create group:', error);
-      setError('Failed to create group. Please try again.');
+      // Handle the error with more specific feedback if available
+      if (typeof error === 'object' && error !== null && 'message' in error) {
+        setError(error.message as string || 'Failed to create group. Please try again.');
+      } else {
+        setError('Failed to create group. Please try again.');
+      }
     }
   };
 

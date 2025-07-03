@@ -23,9 +23,17 @@ export const fetchGroups = createAsyncThunk(
       return await apiService.getGroups();
     } catch (error) {
       if (error instanceof ApiErrorClass) {
-        return rejectWithValue(error.message);
+        return rejectWithValue({
+          message: error.message,
+          status: error.status,
+          details: error.details ? JSON.stringify(error.details) : undefined
+        });
       }
-      return rejectWithValue('Failed to fetch groups');
+      return rejectWithValue({
+        message: 'Failed to fetch groups',
+        status: 0,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 );
@@ -37,9 +45,17 @@ export const fetchGroupDetails = createAsyncThunk(
       return await apiService.getGroupDetails(groupId);
     } catch (error) {
       if (error instanceof ApiErrorClass) {
-        return rejectWithValue(error.message);
+        return rejectWithValue({
+          message: error.message,
+          status: error.status,
+          details: error.details ? JSON.stringify(error.details) : undefined
+        });
       }
-      return rejectWithValue('Failed to fetch group details');
+      return rejectWithValue({
+        message: 'Failed to fetch group details',
+        status: 0,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 );
@@ -51,9 +67,18 @@ export const createGroup = createAsyncThunk(
       return await apiService.createGroup(name, currency);
     } catch (error) {
       if (error instanceof ApiErrorClass) {
-        return rejectWithValue(error.message);
+        // Make sure we return serializable data
+        return rejectWithValue({
+          message: error.message,
+          status: error.status,
+          details: error.details ? JSON.stringify(error.details) : undefined
+        });
       }
-      return rejectWithValue('Failed to create group');
+      return rejectWithValue({
+        message: 'Failed to create group',
+        status: 0,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 );
@@ -65,9 +90,17 @@ export const joinGroup = createAsyncThunk(
       return await apiService.joinGroup(joinCode);
     } catch (error) {
       if (error instanceof ApiErrorClass) {
-        return rejectWithValue(error.message);
+        return rejectWithValue({
+          message: error.message,
+          status: error.status,
+          details: error.details ? JSON.stringify(error.details) : undefined
+        });
       }
-      return rejectWithValue('Failed to join group');
+      return rejectWithValue({
+        message: 'Failed to join group',
+        status: 0,
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 );
@@ -96,7 +129,8 @@ const groupsSlice = createSlice({
       })
       .addCase(fetchGroups.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as { message: string } | undefined;
+        state.error = payload?.message || 'Failed to fetch groups';
       });
 
     // Fetch group details
@@ -111,7 +145,8 @@ const groupsSlice = createSlice({
       })
       .addCase(fetchGroupDetails.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as { message: string } | undefined;
+        state.error = payload?.message || 'Failed to fetch group details';
       });
 
     // Create group
@@ -126,7 +161,8 @@ const groupsSlice = createSlice({
       })
       .addCase(createGroup.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as { message: string } | undefined;
+        state.error = payload?.message || 'Failed to create group';
       });
 
     // Join group
@@ -142,7 +178,8 @@ const groupsSlice = createSlice({
       })
       .addCase(joinGroup.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        const payload = action.payload as { message: string } | undefined;
+        state.error = payload?.message || 'Failed to join group';
       });
   },
 });
