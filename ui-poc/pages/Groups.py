@@ -305,34 +305,336 @@ elif st.session_state.groups_view == "detail" and st.session_state.selected_grou
             # Fetch members for payer selection
             members = fetch_group_members(group.get('_id'))
             member_options = {member.get('user', {}).get('name', f'User {i}'): member.get('userId') for i, member in enumerate(members, 1)}
-            selected_payer = st.selectbox("Paid by", options=list(member_options.keys()), key=f"expense_payer_page_{group.get('_id')}")
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                selected_payer = st.selectbox("Paid by", options=list(member_options.keys()), key=f"expense_payer_page_{group.get('_id')}")
+            with col2:
+                st.write("💰 **Total Amount**")
+                st.write(f"**₹{expense_amount:.2f}**")
+            
+            # Split options with tabs
+            st.write("### Split Options")
+            split_method_tooltip = """
+            - Equally: Split the amount equally between selected members
+            - By Percentages: Specify what percentage of the bill each person pays
+            - By Shares: Assign shares to each person (e.g., 1 share = 1 portion)
+            - By Exact Value: Enter the exact amount each person should pay
+            """
+            st.info(split_method_tooltip)
+            
+            # Set up tab tracking - make the radio button visually match the tabs
+            tab_options = ["Equally", "By Percentages", "By Shares", "By Exact Value"]
+            tab_key = f"active_tab_{group.get('_id')}"
+            
+            if tab_key not in st.session_state:
+                st.session_state[tab_key] = "Equally"
+            
+            # Create a visible tab selector using radio buttons
+            active_tab = st.radio(
+                "Split Method",
+                tab_options,
+                horizontal=True,
+                key=tab_key
+            )
+                
+            # Create the tabs that show content based on the active tab
+            split_tabs = st.tabs(tab_options)
+            
+            # Only show the content for the active tab
+            active_tab_index = tab_options.index(active_tab)
+            
+            # Initialize session state for member selection
+            if f"selected_members_{group.get('_id')}" not in st.session_state:
+                st.session_state[f"selected_members_{group.get('_id')}"] = [m.get("userId") for m in members]
+            
+            # Tab 1: Split Equally
+            with split_tabs[0]:
+                st.write("Split equally between:")
+                
+                # Initialize selected members dict if not exists
+                tab_key = f"equal_members_{group.get('_id')}"
+                if tab_key not in st.session_state:
+                    st.session_state[tab_key] = {m.get("userId"): True for m in members}
+                
+                # Select/Deselect All checkbox
+                all_selected_key = f"all_members_equal_{group.get('_id')}"
+                
+                # Check if all are currently selected
+                all_currently_selected = all(st.session_state[tab_key].values())
+                
+                # The checkbox for Select All / Deselect All
+                all_selected = st.checkbox(
+                    "Select/Deselect All", 
+                    value=all_currently_selected,
+                    key=all_selected_key
+                )
+                
+                # If the checkbox state changes, update all members
+                if all_selected != all_currently_selected:
+                    for member in members:
+                        st.session_state[tab_key][member.get('userId')] = all_selected
+                
+                # Individual member checkboxes
+                member_cols = st.columns(2)  # Display in 2 columns for better space usage
+                for i, member in enumerate(members):
+                    user_name = member.get('user', {}).get('name', 'Unknown User')
+                    with member_cols[i % 2]:
+                        is_selected = st.checkbox(
+                            user_name, 
+                            value=st.session_state[tab_key].get(member.get('userId'), True),
+                            key=f"equal_member_{member.get('userId')}_{group.get('_id')}"
+                        )
+                        st.session_state[tab_key][member.get('userId')] = is_selected
+                
+                # Get list of selected member IDs
+                selected_member_ids = [
+                    member_id for member_id, is_selected in st.session_state[tab_key].items() 
+                    if is_selected
+                ]
+                
+                # Display warning if no members are selected
+                if not selected_member_ids:
+                    st.warning("Please select at least one member to split the expense.")
+            
+            # Tab 2: By Percentages
+            with split_tabs[1]:
+                st.write("Split by percentages")
+                
+                # Initialize percentages
+                percentage_inputs = {}
+                total_percentage = 0
+                
+                for member in members:
+                    user_name = member.get('user', {}).get('name', 'Unknown User')
+                    default_value = round(100 / len(members), 2) if len(members) > 0 else 0
+                    percentage = st.number_input(
+                        f"{user_name} (%)", 
+                        min_value=0.0, 
+                        max_value=100.0, 
+                        value=default_value,
+                        step=0.1,
+                        format="%.2f",
+                        key=f"percent_{member.get('userId')}"
+                    )
+                    percentage_inputs[member.get('userId')] = percentage
+                    total_percentage += percentage
+                
+                # Show total percentage
+                if total_percentage != 100:
+                    st.warning(f"Total percentage: {total_percentage}% (should be 100%)")
+                else:
+                    st.success(f"Total percentage: {total_percentage}%")
+            
+            # Tab 3: By Shares
+            with split_tabs[2]:
+                st.write("Split by shares")
+                
+                # Initialize shares
+                share_inputs = {}
+                total_shares = 0
+                
+                for member in members:
+                    user_name = member.get('user', {}).get('name', 'Unknown User')
+                    shares = st.number_input(
+                        f"{user_name} (shares)", 
+                        min_value=0, 
+                        value=1,
+                        step=1,
+                        key=f"shares_{member.get('userId')}"
+                    )
+                    share_inputs[member.get('userId')] = shares
+                    total_shares += shares
+                
+                # Show total shares
+                if total_shares == 0:
+                    st.error("Total shares cannot be 0")
+                else:
+                    st.info(f"Total shares: {total_shares}")
+                    
+                    # Show preview of amount per person
+                    st.write("### Preview:")
+                    for member in members:
+                        user_name = member.get('user', {}).get('name', 'Unknown User')
+                        user_id = member.get('userId')
+                        if user_id in share_inputs and total_shares > 0:
+                            share_percentage = share_inputs[user_id] / total_shares
+                            amount = expense_amount * share_percentage
+                            st.write(f"{user_name}: ₹{amount:.2f} ({share_percentage*100:.2f}%)")
+            
+            # Tab 4: By Exact Value
+            with split_tabs[3]:
+                st.write("Split by exact amounts")
+                
+                # Initialize exact amounts
+                exact_inputs = {}
+                total_exact = 0
+                
+                for member in members:
+                    user_name = member.get('user', {}).get('name', 'Unknown User')
+                    exact_amount = st.number_input(
+                        f"{user_name} (₹)", 
+                        min_value=0.0, 
+                        max_value=float(expense_amount),
+                        value=round(expense_amount / len(members), 2) if len(members) > 0 else 0,
+                        step=0.01,
+                        format="%.2f",
+                        key=f"exact_{member.get('userId')}"
+                    )
+                    exact_inputs[member.get('userId')] = exact_amount
+                    total_exact += exact_amount
+                
+                # Show total amount
+                if abs(total_exact - expense_amount) > 0.01:
+                    st.warning(f"Total: ₹{total_exact:.2f} (should be ₹{expense_amount:.2f})")
+                else:
+                    st.success(f"Total: ₹{total_exact:.2f}")
+            
+            # Active tab is already set by the set_active_tab function in each tab
+            # This ensures we're using the correctly selected tab for calculations
+            
+            # Show a summary of the split
+            st.write("---")
+            st.write("### Split Summary")
+            
+            # Calculate and display split summary based on the active tab
+            if active_tab == "Equally":
+                # Get the list of selected members from the session state
+                equal_tab_key = f"equal_members_{group.get('_id')}"
+                selected_member_ids = [
+                    member_id for member_id, is_selected in st.session_state[equal_tab_key].items() 
+                    if is_selected
+                ]
+                
+                if selected_member_ids:
+                    equal_split_amount = round(expense_amount / len(selected_member_ids), 2)
+                    for member in members:
+                        user_name = member.get('user', {}).get('name', 'Unknown User')
+                        if member.get('userId') in selected_member_ids:
+                            st.write(f"• {user_name}: ₹{equal_split_amount:.2f}")
+                        else:
+                            st.write(f"• {user_name}: ₹0.00")
+                else:
+                    st.warning("No members selected for splitting")
+                        
+            elif active_tab == "By Percentages":
+                for member in members:
+                    user_name = member.get('user', {}).get('name', 'Unknown User')
+                    percentage = percentage_inputs.get(member.get('userId'), 0)
+                    amount = round(expense_amount * percentage / 100, 2)
+                    st.write(f"• {user_name}: ₹{amount:.2f} ({percentage}%)")
+                    
+            elif active_tab == "By Shares":
+                if total_shares > 0:
+                    for member in members:
+                        user_name = member.get('user', {}).get('name', 'Unknown User')
+                        shares = share_inputs.get(member.get('userId'), 0)
+                        amount = round(expense_amount * shares / total_shares, 2) if shares > 0 else 0
+                        st.write(f"• {user_name}: ₹{amount:.2f} ({shares} shares)")
+                else:
+                    st.warning("Total shares must be greater than 0")
+                    
+            elif active_tab == "By Exact Value":
+                for member in members:
+                    user_name = member.get('user', {}).get('name', 'Unknown User')
+                    amount = exact_inputs.get(member.get('userId'), 0)
+                    st.write(f"• {user_name}: ₹{amount:.2f}")
+                
+                if abs(total_exact - expense_amount) > 0.01:
+                    remaining = expense_amount - total_exact
+                    st.warning(f"Remaining amount to be allocated: ₹{remaining:.2f}")
             
             submit_button = st.form_submit_button("Add Expense")
             
             if submit_button and expense_title and expense_amount:
                 try:
                     headers = {"Authorization": f"Bearer {st.session_state.access_token}"}
-                    # Create equal splits for all members
+                    # Create splits based on selected tab
                     try:
                         if not members:
                             st.error("No members found in group. Cannot create expense.")
                             st.stop()
+                        
+                        splits = []
+                        split_type = "equal"
+                        
+                        if active_tab == "Equally":
+                            # Get the list of selected members from the session state
+                            equal_tab_key = f"equal_members_{group.get('_id')}"
+                            selected_member_ids = [
+                                member_id for member_id, is_selected in st.session_state[equal_tab_key].items() 
+                                if is_selected
+                            ]
                             
-                        equal_split_amount = round(expense_amount / len(members), 2)
-                        splits = [
-                            {
-                                "userId": member.get("userId"),
-                                "amount": equal_split_amount,
-                                "type": "equal"
-                            }
-                            for member in members
-                        ]
+                            if not selected_member_ids:
+                                st.error("No members selected for splitting the expense.")
+                                st.stop()
+                                
+                            equal_split_amount = round(expense_amount / len(selected_member_ids), 2)
+                            splits = [
+                                {
+                                    "userId": member_id,
+                                    "amount": equal_split_amount,
+                                    "type": "equal"
+                                }
+                                for member_id in selected_member_ids
+                            ]
+                            split_type = "equal"
+                            
+                        elif active_tab == "By Percentages":
+                            if abs(total_percentage - 100) > 0.01:
+                                st.error("Total percentage must be 100%.")
+                                st.stop()
+                                
+                            splits = [
+                                {
+                                    "userId": member.get('userId'),
+                                    "amount": round(expense_amount * percentage_inputs[member.get('userId')] / 100, 2),
+                                    "type": "percentage"
+                                }
+                                for member in members if percentage_inputs.get(member.get('userId'), 0) > 0
+                            ]
+                            split_type = "percentage"
+                            
+                        elif active_tab == "By Shares":
+                            if total_shares == 0:
+                                st.error("Total shares cannot be 0.")
+                                st.stop()
+                                
+                            splits = [
+                                {
+                                    "userId": member.get('userId'),
+                                    "amount": round(expense_amount * share_inputs[member.get('userId')] / total_shares, 2),
+                                    "type": "unequal"
+                                }
+                                for member in members if share_inputs.get(member.get('userId'), 0) > 0
+                            ]
+                            split_type = "unequal"
+                            
+                        elif active_tab == "By Exact Value":
+                            if abs(total_exact - expense_amount) > 0.01:
+                                st.error(f"Total amount must be equal to ₹{expense_amount:.2f}.")
+                                st.stop()
+                                
+                            splits = [
+                                {
+                                    "userId": member.get('userId'),
+                                    "amount": exact_inputs[member.get('userId')],
+                                    "type": "exact"
+                                }
+                                for member in members if exact_inputs.get(member.get('userId'), 0) > 0
+                            ]
+                            split_type = "exact"
+                        
+                        # Get the payer's ID from the selected name
+                        payer_id = member_options.get(selected_payer)
                         
                         expense_data = {
                             "description": expense_title + (f" - {expense_description}" if expense_description else ""),
                             "amount": expense_amount,
                             "splits": splits,
-                            "splitType": "equal",
+                            "splitType": split_type,
+                            "paidBy": payer_id,  # Add the payer ID
                             "tags": []
                         }
                         
@@ -344,12 +646,12 @@ elif st.session_state.groups_view == "detail" and st.session_state.selected_grou
                         st.stop()
                     
                     with st.spinner("Creating expense..."):
-                            response = make_api_request(
-                                'post',
-                                f"{API_URL}/groups/{group.get('_id')}/expenses",
-                                headers=headers,
-                                json_data=expense_data
-                            )
+                        response = make_api_request(
+                            'post',
+                            f"{API_URL}/groups/{group.get('_id')}/expenses",
+                            headers=headers,
+                            json_data=expense_data
+                        )
                     
                     if response.status_code == 201:
                         st.success("Expense added successfully!")
