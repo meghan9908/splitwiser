@@ -12,7 +12,7 @@ export const API_CONFIG = {
   BASE_URL: isDevelopment 
     ? isRunningOnPhysicalDevice()
       ? 'http://10.0.2.2:8000' // Android emulator - connects to host machine's localhost
-      : 'http://localhost:8000' // Development - localhost for web or iOS simulator
+      : 'https://splitwiser-production.up.railway.app' // Development - localhost for web or iOS simulator
     : 'https://splitwiser-production.up.railway.app', // Production
   TIMEOUT: 10000,
   ENDPOINTS: {
