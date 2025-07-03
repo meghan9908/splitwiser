@@ -57,10 +57,12 @@ class ApiService {
       if (error instanceof ApiErrorClass) {
         throw error;
       }
+      // Create serializable error details
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new ApiErrorClass(
         'Network error occurred',
         0,
-        error
+        { message: errorMessage }
       );
     }
   }

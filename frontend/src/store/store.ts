@@ -12,7 +12,17 @@ export const store = configureStore({
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
-        ignoredActions: ['persist/PERSIST'],
+        // Ignore these action types for serialization checks
+        ignoredActions: [
+          'persist/PERSIST',
+          'auth/loginUser/rejected',
+          'auth/signupUser/rejected',
+          'auth/loginWithGoogle/rejected'
+        ],
+        // Ignore these paths for serialization checks
+        ignoredPaths: ['auth.error', 'groups.error', 'expenses.error'],
+        // Increase the threshold for development environment
+        warnAfter: 100,
       },
     }),
 });

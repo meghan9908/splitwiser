@@ -1,10 +1,19 @@
 // API Configuration
 const isDevelopment = true; // Set this based on your environment
 
+// Helper function to determine if running on a physical device
+const isRunningOnPhysicalDevice = () => {
+  // In a real app, you might use Platform.OS and other checks
+  // For now, we'll return false to use localhost
+  return false;
+};
+
 export const API_CONFIG = {
   BASE_URL: isDevelopment 
-    ? 'http://localhost:8000' // Development - adjust IP for physical device
-    : 'https://your-production-api.com', // Production
+    ? isRunningOnPhysicalDevice()
+      ? 'http://10.0.2.2:8000' // Android emulator - connects to host machine's localhost
+      : 'http://localhost:8000' // Development - localhost for web or iOS simulator
+    : 'https://splitwiser-production.up.railway.app', // Production
   TIMEOUT: 10000,
   ENDPOINTS: {
     // Auth endpoints
