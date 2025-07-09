@@ -666,6 +666,9 @@ elif st.session_state.groups_view == "detail" and st.session_state.selected_grou
     expenses = fetch_group_expenses(group.get('_id'))
     members = fetch_group_members(group.get('_id'))
     
+    # Get current user ID for balance calculations
+    current_user_id = st.session_state.get('user_id', None)
+    
     if expenses:
         for expense in expenses:
             with st.container():
@@ -685,7 +688,40 @@ elif st.session_state.groups_view == "detail" and st.session_state.selected_grou
                 
                 # Get payer info
                 payer_id = expense.get('createdBy')
-                st.caption(f"Paid by: {next((m.get('user', {}).get('name', 'Unknown') for m in members if m.get('userId') == payer_id), 'Unknown')}")
+                payer_name = next((m.get('user', {}).get('name', 'Unknown') for m in members if m.get('userId') == payer_id), 'Unknown')
+                
+                # Calculate current user's involvement and balance
+                if current_user_id:
+                    splits = expense.get('splits', [])
+                    
+                    # Find current user's split (amount they owe)
+                    user_split = next((split for split in splits if split.get('userId') == current_user_id), None)
+                    
+                    if user_split:
+                        # User is included in the expense
+                        amount_owed = user_split.get('amount', 0)
+                        amount_paid = expense.get('amount', 0) if payer_id == current_user_id else 0
+                        net_balance = amount_paid - amount_owed
+                        
+                        if net_balance > 0:
+                            # User gets money back (green)
+                            st.markdown(f":green[Paid by: {payer_name}]")
+                            st.markdown(f":green[You get back: ₹{net_balance:.2f}]")
+                        elif net_balance < 0:
+                            # User owes money (red)
+                            st.markdown(f":red[Paid by: {payer_name}]")
+                            st.markdown(f":red[You owe: ₹{abs(net_balance):.2f}]")
+                        else:
+                            # User is even
+                            st.caption(f"Paid by: {payer_name}")
+                            st.caption("You're even on this expense")
+                    else:
+                        # User is not included in the expense (grey)
+                        st.markdown(f":gray[Paid by: {payer_name}]")
+                        st.markdown(f":gray[You are not included in this expense]")
+                else:
+                    # Fallback if user ID not available
+                    st.caption(f"Paid by: {payer_name}")
                 
                 st.divider()
     else:
