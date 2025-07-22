@@ -153,39 +153,62 @@ def fetch_group_expenses(group_id):
             headers=headers
         )
         
-        # Debug info
-        if st.session_state.debug_mode:
-            st.sidebar.subheader(f"Debug: /groups/{group_id}/expenses response")
-            st.sidebar.write(f"Status Code: {response.status_code}")
-            try:
-                st.sidebar.json(response.json())
-            except:
-                st.sidebar.write("Failed to parse response as JSON")
-                st.sidebar.text(response.text)
-        
         if response.status_code == 200:
             data = response.json()
             if 'expenses' in data:
                 return data['expenses']
             else:
-                st.error(f"Unexpected response format: 'expenses' key not found in response")
-                if st.session_state.debug_mode:
-                    st.write("Response data:", data)  # Debug info to see actual response structure
                 return []
         else:
-            error_msg = "Unknown error"
-            try:
-                error_data = response.json()
-                if 'detail' in error_data:
-                    error_msg = error_data['detail']
-            except:
-                error_msg = f"HTTP {response.status_code}"
-                
-            st.error(f"Failed to fetch expenses: {error_msg}")
             return []
     except Exception as e:
-        st.error(f"Error fetching expenses: {str(e)}")
+        if st.session_state.debug_mode:
+            st.error(f"Error fetching expenses for group {group_id}: {str(e)}")
         return []
+
+# Function to fetch optimized settlements for a group
+def fetch_group_optimized_settlements(group_id):
+    try:
+        headers = {"Authorization": f"Bearer {st.session_state.access_token}"}
+        response = make_api_request(
+            'post',
+            f"{API_URL}/groups/{group_id}/settlements/optimize",
+            headers=headers
+        )
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'optimizedSettlements' in data:
+                return data['optimizedSettlements']
+            else:
+                return []
+        else:
+            return []
+    except Exception as e:
+        if st.session_state.debug_mode:
+            st.error(f"Error fetching optimized settlements for group {group_id}: {str(e)}")
+        return []
+
+# Function to calculate user balances within a group
+def calculate_group_balances(expenses, members):
+    # Initialize balances for all members
+    balances = {member.get('userId'): 0 for member in members}
+    
+    for expense in expenses:
+        payer_id = expense.get('createdBy')
+        amount = expense.get('amount', 0)
+        splits = expense.get('splits', [])
+        
+        # Add the full amount to the payer's balance (positive = gets money back)
+        balances[payer_id] = balances.get(payer_id, 0) + amount
+        
+        # Subtract each person's share from their balance (negative = owes money)
+        for split in splits:
+            user_id = split.get('userId')
+            split_amount = split.get('amount', 0)
+            balances[user_id] = balances.get(user_id, 0) - split_amount
+    
+    return balances
 
 # Initialize session state for this page
 if "groups_view" not in st.session_state:
@@ -661,13 +684,180 @@ elif st.session_state.groups_view == "detail" and st.session_state.selected_grou
                 except Exception as e:
                     st.error(f"Error adding expense: {str(e)}")
     
-    # Group Expenses
-    st.subheader("Expenses")
+    # Group Summary and Settlements
+    st.subheader("Group Summary")
     expenses = fetch_group_expenses(group.get('_id'))
     members = fetch_group_members(group.get('_id'))
     
-    # Get current user ID for balance calculations
+    # Create a dictionary for quick member name lookup
+    member_names = {m.get('userId'): m.get('user', {}).get('name', 'Unknown') for m in members}
+    
+    # Current user ID for highlighting
     current_user_id = st.session_state.get('user_id', None)
+    
+    # Calculate all user balances within the group
+    balances = calculate_group_balances(expenses, members)
+    
+    # Display group metrics
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        # Count total expenses in the group
+        st.metric("Total Expenses", len(expenses) if expenses else 0)
+    
+    with col2:
+        # Calculate total amount of all expenses
+        total_amount = sum(expense.get('amount', 0) for expense in expenses) if expenses else 0
+        st.metric("Total Amount", f"₹{total_amount:.2f}")
+    
+    # Show current user's balance first
+    if current_user_id and current_user_id in balances:
+        user_balance = balances[current_user_id]
+        if user_balance > 0:
+            st.success(f"Your total balance: You are owed ₹{user_balance:.2f}")
+        elif user_balance < 0:
+            st.error(f"Your total balance: You owe ₹{abs(user_balance):.2f}")
+        else:
+            st.info("Your total balance: You're all settled up!")
+    
+    # Settlement Summary Section
+    st.subheader("Settlement Summary")
+    
+    # Show everyone's balances in an expandable section
+    with st.expander("See everyone's balance"):
+        balance_cols = st.columns(2)
+        i = 0
+        sorted_balances = sorted(balances.items(), key=lambda x: x[1], reverse=True)
+        
+        for user_id, balance in sorted_balances:
+            user_name = member_names.get(user_id, "Unknown User")
+            is_current_user = user_id == current_user_id
+            
+            # Format the name with (You) if it's the current user
+            display_name = f"{user_name} (You)" if is_current_user else user_name
+            
+            with balance_cols[i % 2]:
+                if balance > 0:
+                    st.markdown(f"**{display_name}**: :green[Is owed ₹{balance:.2f}]")
+                elif balance < 0:
+                    st.markdown(f"**{display_name}**: :red[Owes ₹{abs(balance):.2f}]")
+                else:
+                    st.markdown(f"**{display_name}**: Settled up")
+            i += 1
+    
+    # Get optimized settlements
+    optimized_settlements = fetch_group_optimized_settlements(group.get('_id'))
+    
+    # Show the optimized settlements
+    st.markdown("### How to settle up")
+    
+    if optimized_settlements:
+        # Calculate total settlements involving current user
+        user_to_pay_total = 0
+        user_to_receive_total = 0
+        
+        for settlement in optimized_settlements:
+            from_user_id = settlement.get('fromUserId')
+            to_user_id = settlement.get('toUserId')
+            amount = settlement.get('amount', 0)
+            
+            if from_user_id == current_user_id:
+                user_to_pay_total += amount
+            elif to_user_id == current_user_id:
+                user_to_receive_total += amount
+        
+        # Display summary metrics for current user
+        if current_user_id:
+            col1, col2 = st.columns(2)
+            with col1:
+                if user_to_pay_total > 0:
+                    st.metric("You need to pay", f"₹{user_to_pay_total:.2f}")
+                else:
+                    st.metric("You need to pay", "₹0.00")
+            
+            with col2:
+                if user_to_receive_total > 0:
+                    st.metric("You will receive", f"₹{user_to_receive_total:.2f}")
+                else:
+                    st.metric("You will receive", "₹0.00")
+        
+        st.caption("Here's how to settle all debts with minimum transactions:")
+        
+        # Group settlements by whether they involve the current user
+        user_settlements = []
+        other_settlements = []
+        
+        for settlement in optimized_settlements:
+            from_user_id = settlement.get('fromUserId')
+            to_user_id = settlement.get('toUserId')
+            
+            if from_user_id == current_user_id or to_user_id == current_user_id:
+                user_settlements.append(settlement)
+            else:
+                other_settlements.append(settlement)
+        
+        # Display the user's settlements first
+        if user_settlements:
+            st.markdown("#### Your settlements")
+            for settlement in user_settlements:
+                from_user_id = settlement.get('fromUserId')
+                to_user_id = settlement.get('toUserId')
+                amount = settlement.get('amount', 0)
+                
+                # Format names for display
+                from_name = settlement.get('fromUserName', member_names.get(from_user_id, 'Unknown'))
+                to_name = settlement.get('toUserName', member_names.get(to_user_id, 'Unknown'))
+                
+                with st.container():
+                    # Create a card-like container for each settlement
+                    col1, col2 = st.columns([5, 1])
+                    
+                    with col1:
+                        if from_user_id == current_user_id:
+                            # Current user needs to pay
+                            st.markdown(f"**:red[You pay {to_name} ₹{amount:.2f}]**")
+                            
+                            # Add payment details as an expandable section
+                            with st.expander("Payment details"):
+                                st.write(f"Pay **{to_name}** ₹{amount:.2f} to settle your debt in this group.")
+                                
+                                # Could add payment options or UPI ID here in future versions
+                                payment_text = f"Payment for group: {group.get('name')} - Amount: ₹{amount:.2f}"
+                                st.code(payment_text, language="text")
+                                
+                        elif to_user_id == current_user_id:
+                            # Current user gets money
+                            st.markdown(f"**:green[{from_name} pays you ₹{amount:.2f}]**")
+        
+        # Then display other settlements
+        if other_settlements:
+            if user_settlements:
+                st.markdown("#### Other settlements")
+            
+            # Group other settlements by who is paying
+            settlements_by_payer = {}
+            for settlement in other_settlements:
+                from_user_id = settlement.get('fromUserId')
+                if from_user_id not in settlements_by_payer:
+                    settlements_by_payer[from_user_id] = []
+                settlements_by_payer[from_user_id].append(settlement)
+            
+            # Display each payer's settlements
+            for payer_id, payer_settlements in settlements_by_payer.items():
+                payer_name = member_names.get(payer_id, "Unknown")
+                
+                with st.expander(f"{payer_name}'s settlements"):
+                    for settlement in payer_settlements:
+                        to_user_id = settlement.get('toUserId')
+                        amount = settlement.get('amount', 0)
+                        to_name = settlement.get('toUserName', member_names.get(to_user_id, 'Unknown'))
+                        
+                        st.markdown(f"• Pays {to_name} ₹{amount:.2f}")
+    else:
+        st.info("No settlements needed. Everyone is settled up!")
+    
+    # Group Expenses Section
+    st.subheader("Expenses")
     
     if expenses:
         for expense in expenses:
