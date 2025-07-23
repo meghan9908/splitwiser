@@ -249,19 +249,27 @@ with st.expander("Create a New Group", expanded=False):
         if submit_button and group_name:
             try:
                 headers = {"Authorization": f"Bearer {st.session_state.access_token}"}
+                # Fix: Remove description field as it's not in the schema
+                group_data = {"name": group_name}
+                if group_description:
+                    # Since description is not in the schema, we could add it to the name
+                    pass  # For now, ignore description
+                
                 response = make_api_request(
                     'post',
-                    f"{API_URL}/groups/",
+                    f"{API_URL}/groups",  # Remove trailing slash
                     headers=headers,
-                    json_data={"name": group_name, "description": group_description or ""}
+                    json_data=group_data
                 )
                 if response.status_code == 201:
                     st.success("Group created successfully!")
                     group_data = response.json()
-                    st.info(f"Group Code: {group_data.get('group_code', 'N/A')}")
+                    st.info(f"Group Code: {group_data.get('joinCode', 'N/A')}")  # Fix: use joinCode instead of group_code
                     st.rerun()
                 else:
                     st.error(f"Failed to create group: {response.json().get('detail', 'Unknown error')}")
+                    if st.session_state.debug_mode:
+                        st.error(f"Response: {response.text}")
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
