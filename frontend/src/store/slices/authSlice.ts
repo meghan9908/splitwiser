@@ -44,6 +44,13 @@ const setItem = async (key: string, value: string) => {
   }
   return SecureStore.setItemAsync(key, value);
 };
+const deleteItem = async (key: string) => {
+  if (Platform.OS === 'web') {
+    await AsyncStorage.removeItem(key);
+    return;
+  }
+  await SecureStore.deleteItemAsync(key);
+};
 
 // ---- Thunks ---- //
 export const loginUser = createAsyncThunk<AuthResponse, LoginRequest>(
@@ -202,20 +209,24 @@ export const loadStoredAuth = createAsyncThunk<AuthResponse | null, void>(
   }
 );
 
-export const logoutUser = createAsyncThunk<void, void>("auth/logoutUser", async () => {
-  await Promise.all([
-    SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
-    SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
-    SecureStore.deleteItemAsync(STORAGE_KEYS.USER_DATA),
-    SecureStore.deleteItemAsync(STORAGE_KEYS.FIREBASE_USER),
-  ]);
-  apiService.setAccessToken(null);
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.error("Error during sign out:", e);
+export const logoutUser = createAsyncThunk<void, void>(
+  "auth/logoutUser",
+  async () => {
+    try {
+      await Promise.all([
+        deleteItem(STORAGE_KEYS.ACCESS_TOKEN),
+        deleteItem(STORAGE_KEYS.REFRESH_TOKEN),
+        deleteItem(STORAGE_KEYS.USER_DATA),
+        deleteItem(STORAGE_KEYS.FIREBASE_USER),
+      ]);
+
+      apiService.setAccessToken(null);
+      await signOut(auth); // Firebase sign-out (works on web and native)
+    } catch (error) {
+      console.error("Error during logout:", error);
+    }
   }
-});
+);
 
 export const initializeFirebaseAuthListener = createAsyncThunk<void, void>(
   "auth/initializeFirebaseAuthListener",
