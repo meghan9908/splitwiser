@@ -5,7 +5,7 @@ const isDevelopment = true; // Set this based on your environment
 const isRunningOnPhysicalDevice = () => {
   // In a real app, you might use Platform.OS and other checks
   // For now, we'll return false to use localhost
-  return false;
+  return true;
 };
 
 export const API_CONFIG = {

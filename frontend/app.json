@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "SplitWiser",
+    "scheme": "splitwiser",
     "slug": "splitwiser",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -26,9 +27,11 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      "expo-secure-store"
-    ],
-    "scheme": "splitwiser"
+    "plugins": ["expo-secure-store", "expo-web-browser"],
+    "extra": {
+      "eas": {
+        "projectId": "7d966fbc-616f-44d2-974f-36d61a2f9ae7"
+      }
+    }
   }
 }

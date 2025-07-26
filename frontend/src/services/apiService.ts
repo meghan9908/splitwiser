@@ -1,5 +1,6 @@
 import { API_CONFIG } from '../config/config';
 import { ApiErrorClass } from '../types';
+import { Platform } from 'react-native';
 
 // Simplified API service without external dependencies for now
 class ApiService {
@@ -7,7 +8,7 @@ class ApiService {
   private accessToken: string | null = null;
 
   constructor() {
-    this.baseURL = API_CONFIG.BASE_URL;
+    this.baseURL = Platform.OS !== 'web' ? API_CONFIG.BASE_URL : 'http://localhost:8000';
   }
 
   // Set access token for requests
@@ -82,7 +83,7 @@ class ApiService {
     });
   }
 
-  async loginWithGoogle(idToken: string) {
+  async loginWithGoogle(idToken: string) {    
     return this.request(API_CONFIG.ENDPOINTS.LOGIN_GOOGLE, {
       method: 'POST',
       body: JSON.stringify({ id_token: idToken }),

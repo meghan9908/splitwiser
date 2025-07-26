@@ -16,6 +16,8 @@ export interface AuthState {
   user: User | null;
   accessToken: string | null;
   refreshToken: string | null;
+  firebaseUser: FirebaseUser | null;
+   
 }
 
 // Authentication request/response types
@@ -32,12 +34,14 @@ export interface SignupRequest {
 
 export interface GoogleLoginRequest {
   id_token: string;
+  
 }
 
 export interface AuthResponse {
   access_token: string;
   refresh_token: string;
   user: User;
+  firebaseUser?: FirebaseUser;
 }
 
 export interface RefreshTokenRequest {
@@ -196,4 +200,21 @@ export interface SignupFormData {
   email: string;
   password: string;
   confirmPassword: string;
+}
+export interface FirebaseUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
+export interface GoogleSignInRequest {
+  idToken: string;
+  user: {
+    id: string;
+    name: string | null;
+    email: string;
+    photo: string | null;
+    familyName: string | null;
+    givenName: string | null;
+  };
 }
