@@ -3,8 +3,7 @@
 ## Login Screen
 
 ### Screen Shot
-![alt text](<Screenshot 2025-07-28 at 9.47.11 AM.png>)
-
+![alt text](Login_screen.png)
 ### Description
 Clean login interface with email/password fields, remember me checkbox, primary login button, Google Sign-in option, and sign-up redirect link. Uses Material 3 filled text fields and elevated buttons.
 
@@ -36,8 +35,7 @@ Clean login interface with email/password fields, remember me checkbox, primary 
 ## Sign Up Screen
 
 ### Screenshot
-![alt text](<Screenshot 2025-07-28 at 9.48.53 AM.png>)
-
+![alt text](Signup_Screen.png)
 ### Description
 Registration form with email, password, and confirm password fields. Includes primary sign-up button and login redirect for existing users. Form validation shows real-time feedback for password strength and email format.
 
@@ -66,7 +64,7 @@ Registration form with email, password, and confirm password fields. Includes pr
 ## Forgot Password Screen
 
 ### Screenshot
-![alt text](image.png)
+![alt text](Forgot_password.png)
 ### Description
 Password reset interface with clear instructions and email input. Includes back navigation and return to login option.
 
@@ -112,7 +110,7 @@ Password reset interface with clear instructions and email input. Includes back 
 │                             │
 │       Smart Splitting       │
 │                             │
-│  Split equally, by shares,   │
+│  Split equally, by shares,  │
 │  percentages, or exact      │
 │  amounts. We do the math.   │
 │                             │
