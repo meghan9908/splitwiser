@@ -1,4 +1,3 @@
-from firebase_admin import auth as firebase_auth
 from datetime import timedelta
 
 from app.auth.schemas import (
@@ -22,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import (  # Import OAuth2PasswordRequestForm
     OAuth2PasswordRequestForm,
 )
+from firebase_admin import auth as firebase_auth
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
