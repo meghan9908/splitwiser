@@ -1,6 +1,5 @@
 import { API_CONFIG } from '../config/config';
 import { ApiErrorClass } from '../types';
-import { Platform } from 'react-native';
 
 // Simplified API service without external dependencies for now
 class ApiService {
@@ -8,7 +7,7 @@ class ApiService {
   private accessToken: string | null = null;
 
   constructor() {
-    this.baseURL = Platform.OS !== 'web' ? API_CONFIG.BASE_URL : 'http://localhost:8000';
+    this.baseURL = API_CONFIG.BASE_URL;
   }
 
   // Set access token for requests
