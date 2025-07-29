@@ -11,7 +11,7 @@ from app.auth.security import (
     get_password_hash,
     verify_password,
 )
-from app.config import settings
+from app.config import logger, settings
 from app.database import get_database
 from bson import ObjectId
 from fastapi import HTTPException, status
@@ -53,7 +53,8 @@ if not firebase_admin._apps:
                 "projectId": settings.firebase_project_id,
             },
         )
-        print("Firebase initialized with credentials from environment variables")
+        logger.info(
+            "Firebase initialized with credentials from environment variables")
     # Fall back to service account JSON file if env vars are not available
     elif os.path.exists(settings.firebase_service_account_path):
         cred = credentials.Certificate(settings.firebase_service_account_path)
@@ -63,9 +64,11 @@ if not firebase_admin._apps:
                 "projectId": settings.firebase_project_id,
             },
         )
-        print("Firebase initialized with service account file")
+        logger.info("Firebase initialized with service account file")
     else:
-        print("Firebase service account not found. Google auth will not work.")
+        logger.warning(
+            "Firebase service account not found. Google auth will not work.")
+
 
 
 class AuthService:
@@ -113,7 +116,7 @@ class AuthService:
             "email": email,
             "hashed_password": get_password_hash(password),
             "name": name,
-            "avatar": None,
+            "imageUrl": None,
             "currency": "USD",
             "created_at": datetime.now(timezone.utc),
             "auth_provider": "email",
@@ -200,8 +203,8 @@ class AuthService:
                 update_data = {}
                 if user.get("firebase_uid") != firebase_uid:
                     update_data["firebase_uid"] = firebase_uid
-                if user.get("avatar") != picture and picture:
-                    update_data["avatar"] = picture
+                if user.get("imageUrl") != picture and picture:
+                    update_data["imageUrl"] = picture
 
                 if update_data:
                     await db.users.update_one(
@@ -213,7 +216,7 @@ class AuthService:
                 user_doc = {
                     "email": email,
                     "name": name,
-                    "avatar": picture,
+                    "imageUrl": picture,
                     "currency": "USD",
                     "created_at": datetime.now(timezone.utc),
                     "auth_provider": "google",
@@ -351,9 +354,10 @@ class AuthService:
 
         # For development/free tier: just log the reset token
         # In production, you would send this via email
-        print(f"Password reset token for {email}: {reset_token}")
-        print(
-            f"Reset link: https://yourapp.com/reset-password?token={reset_token}")
+        logger.info(f"Password reset token for {email}: {reset_token[:6]}")
+        logger.info(
+            f"Reset link: https://yourapp.com/reset-password?token={reset_token}"
+        )
 
         return True
 

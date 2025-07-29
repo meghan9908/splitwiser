@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from app.auth.security import get_current_user
+from app.config import logger
 from app.expenses.schemas import (
     AttachmentUploadResponse,
     BalanceSummaryResponse,
@@ -118,10 +119,7 @@ async def update_expense(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import traceback
-
-        print(f"Error updating expense: {str(e)}")
-        print(f"Traceback: {traceback.format_exc()}")
+        logger.error(f"Error updating expense: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Failed to update expense: {str(e)}"
         )
@@ -407,7 +405,7 @@ balance_router = APIRouter(prefix="/users/me", tags=["User Balance"])
 
 @balance_router.get("/friends-balance", response_model=FriendsBalanceResponse)
 async def get_cross_group_friend_balances(
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """Retrieve the current user's aggregated balances with all friends"""
     try:
@@ -420,7 +418,7 @@ async def get_cross_group_friend_balances(
 
 @balance_router.get("/balance-summary", response_model=BalanceSummaryResponse)
 async def get_overall_user_balance_summary(
-    current_user: Dict[str, Any] = Depends(get_current_user)
+    current_user: Dict[str, Any] = Depends(get_current_user),
 ):
     """Retrieve an overall balance summary for the current user"""
     try:

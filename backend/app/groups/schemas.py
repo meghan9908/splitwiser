@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class GroupMember(BaseModel):
@@ -38,7 +38,8 @@ class GroupResponse(BaseModel):
     imageUrl: Optional[str] = None
     members: Optional[List[GroupMemberWithDetails]] = []
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
+
 
 
 class GroupListResponse(BaseModel):

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 # Request Models
@@ -42,12 +42,12 @@ class UserResponse(BaseModel):
     id: str = Field(alias="_id")
     email: str
     name: str
-    avatar: Optional[str] = None
+    imageUrl: Optional[str] = None
     currency: str = "USD"
     created_at: datetime
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
+
 
 
 class AuthResponse(BaseModel):

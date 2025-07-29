@@ -2,7 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, validator
 
 
 class SplitType(str, Enum):
@@ -72,11 +72,10 @@ class ExpenseComment(BaseModel):
     content: str
     createdAt: datetime
 
-    model_config = {
-        # "populate_by_name": True,
-        "str_strip_whitespace": True,
-        "validate_assignment": True,
-    }
+    model_config = ConfigDict(
+        populate_by_name=True, str_strip_whitespace=True, validate_assignment=True
+    )
+
 
 
 class ExpenseHistoryEntry(BaseModel):
@@ -86,7 +85,8 @@ class ExpenseHistoryEntry(BaseModel):
     beforeData: Dict[str, Any]
     editedAt: datetime
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
+
 
 
 class ExpenseResponse(BaseModel):
@@ -104,7 +104,8 @@ class ExpenseResponse(BaseModel):
     createdAt: datetime
     updatedAt: datetime
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
+
 
 
 class Settlement(BaseModel):
@@ -121,7 +122,8 @@ class Settlement(BaseModel):
     paidAt: Optional[datetime] = None
     createdAt: datetime
 
-    model_config = {"populate_by_name": True}
+    model_config = ConfigDict(populate_by_name=True)
+
 
 
 class OptimizedSettlement(BaseModel):

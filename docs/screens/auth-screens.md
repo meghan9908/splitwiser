@@ -2,8 +2,37 @@
 
 ## Login Screen
 
-### Screen Shot
-![alt text](Login_screen.png)
+### Wireframe Sketch
+```
+┌─────────────────────────────┐
+│                             │
+│        [ Logo/Icon ]        │
+│                             │
+│      Welcome to SplitWiser  │
+│                             │
+│  ┌─────────────────────┐    │
+│  │    Email Address    │    │
+│  └─────────────────────┘    │
+│                             │
+│  ┌─────────────────────┐    │
+│  │      Password       │    │
+│  └─────────────────────┘    │
+│                             │
+│  [ ] Remember me            │
+│                             │
+│  ┌─────────────────────┐    │
+│  │       LOG IN        │    │
+│  └─────────────────────┘    │
+│                             │
+│  ┌─────────────────────┐    │
+│  │ CONTINUE WITH GOOGLE│    │
+│  └─────────────────────┘    │
+│                             │
+│  New user? [Sign up]        │
+│                             │
+└─────────────────────────────┘
+```
+
 ### Description
 Clean login interface with email/password fields, remember me checkbox, primary login button, Google Sign-in option, and sign-up redirect link. Uses Material 3 filled text fields and elevated buttons.
 
@@ -77,7 +106,6 @@ Password reset interface with clear instructions and email input. Includes back 
 ## Onboarding Screens
 
 ### Onboarding Screen 1: Welcome
-
 
 ### Onboarding Screen 2: Groups
 ```

@@ -3,6 +3,7 @@ from collections import defaultdict, deque
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
+from app.config import logger
 from app.database import mongodb
 from app.expenses.schemas import (
     ExpenseCreateRequest,
@@ -378,7 +379,10 @@ class ExpenseService:
                             updated_expense, user_id
                         )
                 except Exception as e:
-                    print(f"Warning: Failed to recalculate settlements: {e}")
+                    logger.error(
+                        f"Warning: Failed to recalculate settlements: {e}",
+                        exc_info=True,
+                    )
                     # Continue anyway, as the expense update succeeded
 
             # Return updated expense
@@ -393,10 +397,7 @@ class ExpenseService:
         except ValueError:
             raise
         except Exception as e:
-            print(f"Error in update_expense: {str(e)}")
-            import traceback
-
-            traceback.print_exc()
+            logger.error(f"Error in update_expense: {str(e)}", exc_info=True)
             raise Exception(f"Database error during expense update: {str(e)}")
 
     async def delete_expense(

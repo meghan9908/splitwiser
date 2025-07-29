@@ -142,24 +142,21 @@ async def login_with_email(request: EmailLoginRequest):
 @router.post("/login/google", response_model=AuthResponse)
 async def login_with_google(request: GoogleLoginRequest):
     """
-    Authenticate user using Firebase ID token (after Google sign-in via Firebase).
+    Authenticates or registers a user using a Google OAuth ID token.
+
+    On success, returns an access token, refresh token, and user information. Raises an HTTP 500 error if Google authentication fails.
     """
     try:
-        # Verify Firebase ID Token
-        decoded_token = firebase_auth.verify_id_token(request.id_token)
-        uid = decoded_token["uid"]
-        email = decoded_token.get("email")
-        name = decoded_token.get("name")
-        picture = decoded_token.get("picture")
+        result = await auth_service.authenticate_with_google(request.id_token)
 
-        # Use or create user
-        result = await auth_service.authenticate_with_google(id_token=request.id_token)
-
+        # Create access token
         access_token = create_access_token(
             data={"sub": str(result["user"]["_id"])},
             expires_delta=timedelta(
                 minutes=settings.access_token_expire_minutes),
         )
+
+        # Convert ObjectId to string for response
         result["user"]["_id"] = str(result["user"]["_id"])
 
         return AuthResponse(
@@ -170,8 +167,8 @@ async def login_with_google(request: GoogleLoginRequest):
 
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Firebase authentication failed: {str(e)}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Google authentication failed: {str(e)}",
         )
 
 

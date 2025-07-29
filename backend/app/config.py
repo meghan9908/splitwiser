@@ -1,7 +1,12 @@
+import logging
 import os
+import time
+from logging.config import dictConfig
 from typing import Optional
 
 from pydantic_settings import BaseSettings
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 
 class Settings(BaseSettings):
@@ -42,3 +47,45 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+# centralized logging config
+LOGGING_CONFIG = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {
+            "format": "%(asctime)s - %(levelname)s - %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "default",
+        },
+    },
+    "root": {
+        "level": "INFO",
+        "handlers": ["console"],
+    },
+}
+
+dictConfig(LOGGING_CONFIG)
+logger = logging.getLogger("splitwiser")
+
+
+class RequestResponseLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        logger = logging.getLogger("splitwiser")
+
+        logger.info(f"Incoming request: {request.method} {request.url}")
+
+        start_time = time.time()
+        response = await call_next(request)
+        process_time = time.time() - start_time
+
+        logger.info(
+            f"Response status: {response.status_code} for {request.method} {request.url}"
+        )
+        logger.info(f"Response time: {process_time:.2f} seconds")
+
+        return response
