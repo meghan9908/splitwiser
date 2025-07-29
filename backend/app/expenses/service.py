@@ -1,7 +1,6 @@
-import asyncio
-from collections import defaultdict, deque
+from collections import defaultdict
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from app.config import logger
 from app.database import mongodb
@@ -15,7 +14,8 @@ from app.expenses.schemas import (
     SettlementStatus,
     SplitType,
 )
-from bson import ObjectId
+from bson import ObjectId, errors
+from fastapi import HTTPException
 
 
 class ExpenseService:
@@ -46,15 +46,22 @@ class ExpenseService:
         # Validate and convert group_id to ObjectId
         try:
             group_obj_id = ObjectId(group_id)
-        except Exception:
-            raise ValueError("Group not found or user not a member")
+        except errors.InvalidId:  # Incorrect ObjectId format
+            logger.warning(f"Invalid group ID format: {group_id}")
+            raise HTTPException(status_code=400, detail="Invalid group ID")
+        except Exception as e:
+            logger.error(f"Unexpected error parsing groupId: {e}")
+            raise HTTPException(
+                status_code=500, detail="Failed to process group ID")
 
         # Verify user is member of the group
         group = await self.groups_collection.find_one(
             {"_id": group_obj_id, "members.userId": user_id}
         )
-        if not group:
-            raise ValueError("Group not found or user not a member")
+        if not group:  # User not a member of the group
+            raise HTTPException(
+                status_code=403, detail="You are not a member of this group"
+            )
 
         # Create expense document
         expense_doc = {
@@ -231,21 +238,32 @@ class ExpenseService:
         try:
             group_obj_id = ObjectId(group_id)
             expense_obj_id = ObjectId(expense_id)
-        except Exception:
-            raise ValueError("Group not found or user not a member")
+        except errors.InvalidId:  # Incorrect ObjectId format for group_id or expense_id
+            logger.warning(
+                f"Invalid ObjectId(s): group_id={group_id}, expense_id={expense_id}"
+            )
+            raise HTTPException(
+                status_code=400, detail="Invalid group ID or expense ID"
+            )
+        except Exception as e:
+            logger.error(f"Unexpected error parsing IDs: {e}")
+            raise HTTPException(
+                status_code=500, detail="Unable to process IDs")
 
         # Verify user access
         group = await self.groups_collection.find_one(
             {"_id": group_obj_id, "members.userId": user_id}
         )
-        if not group:
-            raise ValueError("Group not found or user not a member")
+        if not group:  # Unauthorized access
+            raise HTTPException(
+                status_code=403, detail="You are not a member of this group"
+            )
 
         expense_doc = await self.expenses_collection.find_one(
             {"_id": expense_obj_id, "groupId": group_id}
         )
-        if not expense_doc:
-            raise ValueError("Expense not found")
+        if not expense_doc:  # Expense not found
+            raise HTTPException(status_code=404, detail="Expense not found")
 
         expense = await self._expense_doc_to_response(expense_doc)
 
@@ -274,30 +292,39 @@ class ExpenseService:
             # Validate ObjectId format
             try:
                 expense_obj_id = ObjectId(expense_id)
-            except Exception as e:
-                raise ValueError(f"Invalid expense ID format: {expense_id}")
+            except errors.InvalidId:
+                logger.warning(f"Invalid expense ID format: {expense_id}")
+                raise HTTPException(
+                    status_code=400, detail="Invalid expense ID format")
 
             # Verify user access and that they created the expense
             expense_doc = await self.expenses_collection.find_one(
                 {"_id": expense_obj_id, "groupId": group_id, "createdBy": user_id}
             )
-            if not expense_doc:
-                raise ValueError("Expense not found or not authorized to edit")
+            if not expense_doc:  # Expense not found or user not authorized
+                raise HTTPException(
+                    status_code=403,
+                    detail="Not authorized to update this expense or it does not exist",
+                )
 
             # Validate splits against current or new amount if both are being updated
             if updates.splits is not None and updates.amount is not None:
                 total_split = sum(split.amount for split in updates.splits)
                 if abs(total_split - updates.amount) > 0.01:
-                    raise ValueError(
-                        "Split amounts must sum to total expense amount")
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Split amounts must sum to total expense amount",
+                    )
 
             # If only splits are being updated, validate against current amount
             elif updates.splits is not None:
                 current_amount = expense_doc["amount"]
                 total_split = sum(split.amount for split in updates.splits)
                 if abs(total_split - current_amount) > 0.01:
-                    raise ValueError(
-                        "Split amounts must sum to current expense amount")
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Split amounts must sum to total expense amount",
+                    )
 
             # Store original data for history
             original_data = {
@@ -332,7 +359,8 @@ class ExpenseService:
                         user.get(
                             "name", "Unknown User") if user else "Unknown User"
                     )
-                except:
+                except Exception as e:
+                    logger.warning(f"Failed to fetch user for history: {e}")
                     user_name = "Unknown User"
 
                 history_entry = {
@@ -349,8 +377,10 @@ class ExpenseService:
                     {"$set": update_doc, "$push": {"history": history_entry}},
                 )
 
-                if result.matched_count == 0:
-                    raise ValueError("Expense not found during update")
+                if result.matched_count == 0:  # Expense not found during update
+                    raise HTTPException(
+                        status_code=404, detail="Expense not found during update"
+                    )
             else:
                 # No actual changes, just update the timestamp
                 result = await self.expenses_collection.update_one(
@@ -358,7 +388,9 @@ class ExpenseService:
                 )
 
                 if result.matched_count == 0:
-                    raise ValueError("Expense not found during update")
+                    raise HTTPException(
+                        status_code=404, detail="Expense not found during update"
+                    )
 
             # If splits changed, recalculate settlements
             if updates.splits is not None or updates.amount is not None:
@@ -378,10 +410,9 @@ class ExpenseService:
                         await self._create_settlements_for_expense(
                             updated_expense, user_id
                         )
-                except Exception as e:
+                except Exception:
                     logger.error(
-                        f"Warning: Failed to recalculate settlements: {e}",
-                        exc_info=True,
+                        f"Warning: Failed to recalculate settlements", exc_info=True
                     )
                     # Continue anyway, as the expense update succeeded
 
@@ -390,14 +421,26 @@ class ExpenseService:
                 {"_id": expense_obj_id}
             )
             if not updated_expense:
-                raise ValueError("Failed to retrieve updated expense")
+                raise HTTPException(
+                    status_code=500, detail="Failed to retrieve updated expense"
+                )
 
             return await self._expense_doc_to_response(updated_expense)
 
-        except ValueError:
+        # Allowing FastAPI exception to bubble up for proper handling
+        except HTTPException:
             raise
-        except Exception as e:
-            logger.error(f"Error in update_expense: {str(e)}", exc_info=True)
+        except ValueError as ve:
+            raise HTTPException(status_code=400, detail=str(ve))
+        except (
+            Exception
+        ) as e:  # logger.exception() will provide the entire traceback, so its safe to remove traceback
+            logger.exception(
+                f"Unhandled error in update_expense for expense {expense_id}: {e}"
+            )
+            import traceback
+
+            traceback.print_exc()
             raise Exception(f"Database error during expense update: {str(e)}")
 
     async def delete_expense(
@@ -411,7 +454,13 @@ class ExpenseService:
              "createdBy": user_id}
         )
         if not expense_doc:
-            raise ValueError("Expense not found or not authorized to delete")
+            logger.warning(
+                f"Unauthorized delete attempt or missing expense: {expense_id} by user {user_id}"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail="Not authorized to delete this expense or it does not exist",
+            )
 
         # Delete settlements for this expense
         await self.settlements_collection.delete_many({"expenseId": expense_id})
@@ -576,7 +625,12 @@ class ExpenseService:
             {"_id": ObjectId(group_id), "members.userId": user_id}
         )
         if not group:
-            raise ValueError("Group not found or user not a member")
+            logger.warning(
+                f"Unauthorized access attempt to group {group_id} by user {user_id}"
+            )
+            raise HTTPException(
+                status_code=403, detail="Group not found or user not a member"
+            )
 
         # Get user names
         users = await self.users_collection.find(
@@ -666,7 +720,12 @@ class ExpenseService:
             {"_id": ObjectId(group_id), "members.userId": user_id}
         )
         if not group:
-            raise ValueError("Group not found or user not a member")
+            logger.warning(
+                f"Unauthorized access attempt to group {group_id} by user {user_id}"
+            )
+            raise HTTPException(
+                status_code=403, detail="Group not found or user not a member"
+            )
 
         # Build query
         query = {"groupId": group_id}
@@ -705,17 +764,24 @@ class ExpenseService:
 
         # Verify user access
         group = await self.groups_collection.find_one(
-            {"_id": ObjectId(group_id), "members.userId": user_id}
+            {
+                "_id": ObjectId(
+                    group_id
+                ),  # Assuming valid object ID format (same as above functions)
+                "members.userId": user_id,
+            }
         )
         if not group:
-            raise ValueError("Group not found or user not a member")
+            raise HTTPException(
+                status_code=403, detail="Group not found or user not a member"
+            )
 
         settlement_doc = await self.settlements_collection.find_one(
             {"_id": ObjectId(settlement_id), "groupId": group_id}
         )
 
         if not settlement_doc:
-            raise ValueError("Settlement not found")
+            raise HTTPException(status_code=404, detail="Settlement not found")
 
         return Settlement(**{**settlement_doc, "_id": str(settlement_doc["_id"])})
 
@@ -740,7 +806,7 @@ class ExpenseService:
         )
 
         if result.matched_count == 0:
-            raise ValueError("Settlement not found")
+            raise HTTPException(status_code=404, detail="Settlement not found")
 
         # Get updated settlement
         settlement_doc = await self.settlements_collection.find_one(
@@ -759,7 +825,9 @@ class ExpenseService:
             {"_id": ObjectId(group_id), "members.userId": user_id}
         )
         if not group:
-            raise ValueError("Group not found or user not a member")
+            raise HTTPException(
+                status_code=403, detail="Group not found or user not a member"
+            )
 
         result = await self.settlements_collection.delete_one(
             {"_id": ObjectId(settlement_id), "groupId": group_id}
@@ -777,7 +845,9 @@ class ExpenseService:
             {"_id": ObjectId(group_id), "members.userId": current_user_id}
         )
         if not group:
-            raise ValueError("Group not found or user not a member")
+            raise HTTPException(
+                status_code=403, detail="Group not found or user not a member"
+            )
 
         # Get user info
         user = await self.users_collection.find_one({"_id": ObjectId(target_user_id)})
@@ -1109,7 +1179,9 @@ class ExpenseService:
             {"_id": ObjectId(group_id), "members.userId": user_id}
         )
         if not group:
-            raise ValueError("Group not found or user not a member")
+            raise HTTPException(
+                status_code=403, detail="Group not found or user not a member"
+            )
 
         # Build date range
         if period == "month" and year and month:

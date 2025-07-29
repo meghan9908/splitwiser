@@ -180,6 +180,18 @@ async def test_get_user_by_id_not_found(mock_db_client, mock_get_database):
     assert user is None
 
 
+# Added Test for invalid ObjectId format
+@pytest.mark.asyncio
+async def test_get_user_by_id_invalid_objectid(mock_db_client, mock_get_database):
+    invalid_id = "invalid-objectid"
+
+    user = await user_service.get_user_by_id(invalid_id)
+
+    # No DB calls should be made
+    mock_db_client.users.find_one.assert_not_called()
+    assert user is None
+
+
 # --- Tests for update_user_profile ---
 
 
@@ -240,6 +252,19 @@ async def test_update_user_profile_user_not_found(mock_db_client, mock_get_datab
     assert updated_user is None
 
 
+# Added Test for invalid ObjectId format for user update
+@pytest.mark.asyncio
+async def test_update_user_profile_invalid_object_id(mock_db_client, mock_get_database):
+    invalid_user_id = "invalid_object_id"  # Not a 24-char hex string
+    update_data = {"name": "Test Name"}
+
+    updated_user = await user_service.update_user_profile(invalid_user_id, update_data)
+
+    # Should return None and never hit the DB
+    mock_db_client.users.find_one_and_update.assert_not_called()
+    assert updated_user is None
+
+
 # --- Tests for delete_user ---
 
 
@@ -266,4 +291,16 @@ async def test_delete_user_not_found(mock_db_client, mock_get_database):
 
     mock_db_client.users.delete_one.assert_called_once_with(
         {"_id": TEST_OBJECT_ID})
+    assert result is False
+
+
+# Added Test for invalid ObjectId format for user deletion
+@pytest.mark.asyncio
+async def test_delete_user_invalid_object_id(mock_db_client, mock_get_database):
+    invalid_user_id = "invalid_object_id"  # Not a valid 24-char hex string
+
+    result = await user_service.delete_user(invalid_user_id)
+
+    # Expected result: False and never hit the DB
+    mock_db_client.users.delete_one.assert_not_called()
     assert result is False

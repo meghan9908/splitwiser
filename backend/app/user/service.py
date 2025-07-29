@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from app.config import logger
 from app.database import get_database
-from bson import ObjectId
-from fastapi import Depends, HTTPException, status
+from bson import ObjectId, errors
 
 
 class UserService:
@@ -31,11 +31,15 @@ class UserService:
                 )
                 return dt_utc.isoformat().replace("+00:00", "Z")
             except AttributeError:
+                logger.warning(
+                    "DateTime conversion failed, returning raw string"
+                )  # Logging failed datetime transformation
                 return str(dt)
 
         try:
             user_id = str(user["_id"])
-        except Exception:
+        except (KeyError, TypeError) as e:
+            logger.error(f"Invalid user document format: {e}")
             return None  # Handle invalid ObjectId gracefully
         return {
             "id": user_id,
@@ -51,7 +55,9 @@ class UserService:
         db = self.get_db()
         try:
             obj_id = ObjectId(user_id)
-        except Exception:
+        except errors.InvalidId as e:
+            # Invalid ObjectId format
+            logger.warning(f"Invalid User ID format: {e}")
             return None  # Handle invalid ObjectId gracefully
         user = await db.users.find_one({"_id": obj_id})
         return self.transform_user_document(user)
@@ -60,7 +66,10 @@ class UserService:
         db = self.get_db()
         try:
             obj_id = ObjectId(user_id)
-        except Exception:
+        except errors.InvalidId as e:
+            logger.warning(
+                f"Invalid User ID format: {e}"
+            )  # Invalid ObjectId format for profile update
             return None  # Handle invalid ObjectId gracefully
         # Only allow certain fields
         allowed = {"name", "imageUrl", "currency"}
@@ -75,7 +84,10 @@ class UserService:
         db = self.get_db()
         try:
             obj_id = ObjectId(user_id)
-        except Exception:
+        except errors.InvalidId as e:
+            logger.warning(
+                f"Invalid User ID format: {e}"
+            )  # Invalid ObjectId format for deletion
             return False  # Handle invalid ObjectId gracefully
         result = await db.users.delete_one({"_id": obj_id})
         return result.deleted_count > 0
