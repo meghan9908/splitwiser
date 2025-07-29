@@ -54,17 +54,13 @@ class GroupService:
                                     if user
                                     else f"{member_user_id}@example.com"
                                 ),
-                                "avatar": (
-                                    user.get("imageUrl") or user.get("avatar")
-                                    if user
-                                    else None
-                                ),
+                                "imageUrl": (user.get("imageUrl") if user else None),
                             }
                             if user
                             else {
                                 "name": f"User {member_user_id[-4:]}",
                                 "email": f"{member_user_id}@example.com",
-                                "avatar": None,
+                                "imageUrl": None,
                             }
                         ),
                     }
@@ -79,7 +75,7 @@ class GroupService:
                             "user": {
                                 "name": f"User {member_user_id[-4:]}",
                                 "email": f"{member_user_id}@example.com",
-                                "avatar": None,
+                                "imageUrl": None,
                             },
                         }
                     )

@@ -41,7 +41,7 @@ class UserService:
             "id": user_id,
             "name": user.get("name"),
             "email": user.get("email"),
-            "imageUrl": user.get("imageUrl") or user.get("avatar"),
+            "imageUrl": user.get("imageUrl"),
             "currency": user.get("currency", "USD"),
             "createdAt": iso(user.get("created_at")),
             "updatedAt": iso(user.get("updated_at") or user.get("created_at")),
