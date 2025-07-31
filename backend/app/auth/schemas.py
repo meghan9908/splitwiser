@@ -54,6 +54,7 @@ class AuthResponse(BaseModel):
     access_token: str
     refresh_token: str
     user: UserResponse
+    new_user: bool = False  # Indicates if the user is newly created
 
 
 class TokenResponse(BaseModel):

@@ -1,10 +1,10 @@
+// SignupScreen.tsx
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import React, { useState } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, Text, TextInput, useTheme } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { useAppDispatch } from '../../store/hooks';
 import { signupUser } from '../../store/slices/authSlice';
 import { AuthStackParamList } from '../../types';
@@ -54,21 +54,28 @@ const SignupScreen: React.FC = () => {
   };
 
   const handleSignup = async () => {
+    console.log('🚀 Starting signup process...');
+    
     if (!validateForm()) {
+      console.log('❌ Form validation failed');
       return;
     }
 
     setError(null);
     setIsLoading(true);
+    console.log('📝 Form validated, dispatching signup action...');
 
     try {
-      await dispatch(signupUser({ name, email, password })).unwrap();
-      // Navigation to main app will happen automatically when auth state updates
+      const result = await dispatch(signupUser({ name, email, password })).unwrap();
+      console.log('✅ Signup successful:', result);
+      console.log('🎯 Root navigator will automatically show onboarding');
+      // No manual navigation needed - root navigator will handle this
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('❌ Signup error:', error);
       setError(typeof error === 'string' ? error : 'Failed to create account. Please try again.');
     } finally {
       setIsLoading(false);
+      console.log('🏁 Signup process completed');
     }
   };
 

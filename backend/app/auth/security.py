@@ -99,7 +99,8 @@ def verify_token(token: str) -> Dict[str, Any]:
             token, settings.secret_key, algorithms=[settings.algorithm]
         )
         return payload
-    except JWTError:
+    except JWTError as e:
+        print(f"Token verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",

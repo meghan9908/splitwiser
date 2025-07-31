@@ -52,13 +52,11 @@ else:
     # Fallback to allow all origins if not specified (not recommended for production)
     allowed_origins = ["*"]
 
-logger.info(f"Allowed CORS origins: {allowed_origins}")
-
-app.add_middleware(RequestResponseLoggingMiddleware)
+print(f"Allowed CORS origins: {settings.allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins= allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=[
@@ -77,13 +75,19 @@ app.add_middleware(
     max_age=3600,  # Cache preflight responses for 1 hour
 )
 
+@app.middleware("http")
+async def log_ip_and_port(request: Request, call_next):
+    client_host = request.client.host
+    client_port = request.client.port
+    print(f"🌐 Incoming request from {client_host}:{client_port} to {request.url.path}")
+    response = await call_next(request)
+    return response
 
 # Add a catch-all OPTIONS handler that should work for any path
 @app.options("/{path:path}")
 async def options_handler(request: Request, path: str):
     """Handle all OPTIONS requests"""
-    logger.info(f"OPTIONS request received for path: /{path}")
-    logger.info(f"Origin: {request.headers.get('origin', 'No origin header')}")
+    print(f"OPTIONS request received for path: /{path}")
 
     response = Response(status_code=200)
 

@@ -158,11 +158,13 @@ async def login_with_google(request: GoogleLoginRequest):
 
         # Convert ObjectId to string for response
         result["user"]["_id"] = str(result["user"]["_id"])
+        result["user"]["new_user"] = result.get("new_user", False)
 
         return AuthResponse(
             access_token=access_token,
             refresh_token=result["refresh_token"],
             user=UserResponse(**result["user"]),
+            new_user=result["user"]["new_user"],  # Include new_user flag in response
         )
 
     except Exception as e:
@@ -219,6 +221,7 @@ async def refresh_token(request: RefreshTokenRequest):
 
 @router.post("/token/verify", response_model=UserResponse)
 async def verify_token(request: TokenVerifyRequest):
+    print("Verifying access token:", request.access_token)
     """
     Verifies an access token and returns the associated user information.
 

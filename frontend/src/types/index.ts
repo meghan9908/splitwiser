@@ -17,7 +17,8 @@ export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
   firebaseUser: FirebaseUser | null;
-   
+  hasCompletedOnboarding: boolean;
+  isnewUser: boolean; // Track if the user is new
 }
 
 // Authentication request/response types
@@ -42,6 +43,7 @@ export interface AuthResponse {
   refresh_token: string;
   user: User;
   firebaseUser?: FirebaseUser;
+  isNewUser: boolean; // Indicates if the user is new
 }
 
 export interface RefreshTokenRequest {
@@ -120,6 +122,7 @@ export type SplitMethod = 'equal' | 'unequal' | 'percentage' | 'shares';
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
+  Onboarding: undefined;
 };
 
 export type AuthStackParamList = {

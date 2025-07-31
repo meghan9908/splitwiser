@@ -15,8 +15,7 @@ import {
   FirebaseUser,
 } from "../../types";
 import { auth } from "../../config/firebaseConfig";
-import { GoogleAuthProvider, signInWithCredential } from "firebase/auth";
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Platform } from 'react-native';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -29,20 +28,26 @@ const STORAGE_KEYS = {
 
 const initialState: AuthState = {
   isAuthenticated: false,
-  isLoading: false,
+  isLoading: true,
   user: null,
   accessToken: null,
   refreshToken: null,
   firebaseUser: null,
+  hasCompletedOnboarding: false,
+  isnewUser: false, // Track if the user is new
 };
-import { Platform } from 'react-native';
-
 const setItem = async (key: string, value: string) => {
   if (Platform.OS === 'web') {
     AsyncStorage.setItem(key, value);
     return;
   }
   return SecureStore.setItemAsync(key, value);
+};
+const getItem = async (key: string): Promise<string | null> => {
+  if (Platform.OS === 'web') {
+    return AsyncStorage.getItem(key);
+  }
+  return SecureStore.getItemAsync(key);
 };
 const deleteItem = async (key: string) => {
   if (Platform.OS === 'web') {
@@ -59,11 +64,13 @@ export const loginUser = createAsyncThunk<AuthResponse, LoginRequest>(
     try {
       const response = await apiService.login(email, password);
       try{
-        await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, response.access_token);
-        await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, response.refresh_token);
-        await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
-
+        console.log("Login response:", response);
+        await setItem(STORAGE_KEYS.ACCESS_TOKEN, response.access_token);
+        await setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refresh_token);
+        await setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
+        console.log("User data saved:", STORAGE_KEYS.USER_DATA);
         apiService.setAccessToken(response.access_token);
+
         return response;
       } catch (e) {
         console.error("Error during login:", e);
@@ -83,12 +90,17 @@ export const signupUser = createAsyncThunk<AuthResponse, SignupRequest>(
   async ({ email, password, name }, { rejectWithValue }) => {
     try {
       const response = await apiService.signup(email, password, name);
+      try{
+        await setItem(STORAGE_KEYS.ACCESS_TOKEN, response.access_token);
+        await setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refresh_token);
+        await setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
 
-      await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, response.access_token);
-      await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, response.refresh_token);
-      await SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(response.user));
+        apiService.setAccessToken(response.access_token);
+      } catch (e) {
+        console.error("Error during signup:", e);
+        return rejectWithValue({ message: "Signup failed. Please try again.", status: 0 });
+      }
 
-      apiService.setAccessToken(response.access_token);
       return response;
     } catch (error) {
       if (error instanceof ApiErrorClass) {
@@ -106,7 +118,7 @@ export const loginWithGoogle = createAsyncThunk<
   try {
     // Call backend API directly with Google/Firebase ID token
     const response = await apiService.loginWithGoogle(idToken);
-
+    const newUser = response.new_user; // Check if the user is new
     // Save tokens locally
     await setItem(STORAGE_KEYS.ACCESS_TOKEN, response.access_token);
     await setItem(STORAGE_KEYS.REFRESH_TOKEN, response.refresh_token);
@@ -131,6 +143,7 @@ export const loginWithGoogle = createAsyncThunk<
       ...response,
       firebaseUser,
       user: userData,
+      isNewUser: newUser, // Pass new user status
     };
   } catch (error) {
     console.error("Error during Google login:", error);
@@ -149,15 +162,15 @@ export const refreshAccessToken = createAsyncThunk<string, void>(
 
       const response = await apiService.refreshToken(authState.refreshToken);
 
-      await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, response.access_token);
+      await setItem(STORAGE_KEYS.ACCESS_TOKEN, response.access_token);
       apiService.setAccessToken(response.access_token);
       return response.access_token;
     } catch {
       await Promise.all([
-        SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.USER_DATA),
-        SecureStore.deleteItemAsync(STORAGE_KEYS.FIREBASE_USER),
+        deleteItem(STORAGE_KEYS.ACCESS_TOKEN),
+        deleteItem(STORAGE_KEYS.REFRESH_TOKEN),
+        deleteItem(STORAGE_KEYS.USER_DATA),
+        deleteItem(STORAGE_KEYS.FIREBASE_USER),
       ]);
 
       apiService.setAccessToken(null);
@@ -176,10 +189,10 @@ export const loadStoredAuth = createAsyncThunk<AuthResponse | null, void>(
   async (_, { rejectWithValue }) => {
     try {
       const [accessToken, refreshToken, userData, firebaseUserData] = await Promise.all([
-        SecureStore.getItemAsync(STORAGE_KEYS.ACCESS_TOKEN),
-        SecureStore.getItemAsync(STORAGE_KEYS.REFRESH_TOKEN),
-        SecureStore.getItemAsync(STORAGE_KEYS.USER_DATA),
-        SecureStore.getItemAsync(STORAGE_KEYS.FIREBASE_USER),
+        getItem(STORAGE_KEYS.ACCESS_TOKEN),
+        getItem(STORAGE_KEYS.REFRESH_TOKEN),
+        getItem(STORAGE_KEYS.USER_DATA),
+        getItem(STORAGE_KEYS.FIREBASE_USER),
       ]);
 
       if (accessToken && refreshToken && userData) {
@@ -192,7 +205,7 @@ export const loadStoredAuth = createAsyncThunk<AuthResponse | null, void>(
           return { access_token: accessToken, refresh_token: refreshToken, user, firebaseUser };
         } catch {
           const refreshResponse = await apiService.refreshToken(refreshToken);
-          await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, refreshResponse.access_token);
+          await setItem(STORAGE_KEYS.ACCESS_TOKEN, refreshResponse.access_token);
           apiService.setAccessToken(refreshResponse.access_token);
           return {
             access_token: refreshResponse.access_token,
@@ -235,7 +248,7 @@ export const initializeFirebaseAuthListener = createAsyncThunk<void, void>(
     onAuthStateChanged(firebaseAuth, async (firebaseUser) => {
       if (firebaseUser) {
         console.log("Firebase user signed in:", firebaseUser.uid);
-        await SecureStore.setItemAsync(
+        await setItem(
           STORAGE_KEYS.FIREBASE_USER,
           JSON.stringify({
             uid: firebaseUser.uid,
@@ -261,11 +274,14 @@ const authSlice = createSlice({
     updateUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
         state.user = { ...state.user, ...action.payload };
-        SecureStore.setItemAsync(STORAGE_KEYS.USER_DATA, JSON.stringify(state.user));
+        setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(state.user));
       }
     },
     setFirebaseUser: (state, action: PayloadAction<FirebaseUser | null>) => {
       state.firebaseUser = action.payload;
+    },
+    completeOnboarding: (state) => {
+      state.hasCompletedOnboarding = true;
     },
   },
   extraReducers: (builder) => {
@@ -279,6 +295,8 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.accessToken = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
+        state.hasCompletedOnboarding = true;
+
       })
       .addCase(loginUser.rejected, (state) => {
         state.isLoading = false;
@@ -286,6 +304,7 @@ const authSlice = createSlice({
         state.user = null;
         state.accessToken = null;
         state.refreshToken = null;
+        state.hasCompletedOnboarding = false;
       })
       .addCase(signupUser.pending, (state) => {
         state.isLoading = true;
@@ -314,6 +333,7 @@ const authSlice = createSlice({
         state.accessToken = action.payload.access_token;
         state.refreshToken = action.payload.refresh_token;
         state.firebaseUser = action.payload.firebaseUser ?? null;
+        state.hasCompletedOnboarding = !action.payload.isNewUser; // Only existing users have completed onboarding
       })
       .addCase(loginWithGoogle.rejected, (state) => {
         state.isLoading = false;
@@ -325,6 +345,8 @@ const authSlice = createSlice({
       })
       .addCase(refreshAccessToken.fulfilled, (state, action) => {
         state.accessToken = action.payload;
+        state.hasCompletedOnboarding = true;
+
       })
       .addCase(refreshAccessToken.rejected, (state) => {
         state.isAuthenticated = false;
@@ -344,6 +366,7 @@ const authSlice = createSlice({
           state.accessToken = action.payload.access_token;
           state.refreshToken = action.payload.refresh_token;
           state.firebaseUser = action.payload.firebaseUser ?? null;
+          state.hasCompletedOnboarding = true;
         }
       })
       .addCase(loadStoredAuth.rejected, (state) => {
@@ -364,5 +387,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearAuthError, updateUser, setFirebaseUser } = authSlice.actions;
+export const { clearAuthError, updateUser, setFirebaseUser, completeOnboarding } = authSlice.actions;
 export default authSlice.reducer;

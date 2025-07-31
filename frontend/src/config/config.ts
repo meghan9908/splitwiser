@@ -5,13 +5,13 @@ const isDevelopment = true; // Set this based on your environment
 const isRunningOnPhysicalDevice = () => {
   // In a real app, you might use Platform.OS and other checks
   // For now, we'll return false to use localhost
-  return false;
+  return true;
 };
 
 export const API_CONFIG = {
   BASE_URL: isDevelopment 
     ? isRunningOnPhysicalDevice()
-      ? 'http://10.0.2.2:8000' // Android emulator - connects to host machine's localhost
+      ? 'http://localhost:8000' // Android emulator - connects to host machine's localhost
       : 'https://splitwiser-production.up.railway.app' // Development - localhost for web or iOS simulator
     : 'https://splitwiser-production.up.railway.app', // Production
   TIMEOUT: 10000,

@@ -1,7 +1,3 @@
-import logging
-import os
-import time
-from logging.config import dictConfig
 from typing import Optional
 
 from pydantic_settings import BaseSettings
@@ -38,7 +34,7 @@ class Settings(BaseSettings):
 
     # CORS - Add your frontend domain here for production
     allowed_origins: str = (
-        "http://localhost:3000,http://localhost:5173,http://127.0.0.1:3000,http://localhost:8081"
+        "http://localhost:3060,http://localhost:8081,http://localhost:5173,http://127.0.0.1:3000,http://localhost:8081"
     )
     allow_all_origins: bool = False
 

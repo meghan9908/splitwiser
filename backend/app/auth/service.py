@@ -3,6 +3,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional
 
+
 import firebase_admin
 from app.auth.schemas import UserResponse
 from app.auth.security import (
@@ -184,6 +185,7 @@ class AuthService:
             name = decoded_token.get(
                 "name", email.split("@")[0] if email else "User")
             picture = decoded_token.get("picture")
+            new_user = False
 
             if not email:
                 raise HTTPException(
@@ -227,11 +229,12 @@ class AuthService:
                 result = await db.users.insert_one(user_doc)
                 user_doc["_id"] = result.inserted_id
                 user = user_doc
+                new_user = True
 
             # Create refresh token
             refresh_token = await self._create_refresh_token_record(str(user["_id"]))
 
-            return {"user": user, "refresh_token": refresh_token}
+            return {"user": user, "refresh_token": refresh_token, "new_user": new_user}
 
         except firebase_auth.InvalidIdTokenError:
             raise HTTPException(
@@ -304,7 +307,6 @@ class AuthService:
             HTTPException: If the token is invalid or the user does not exist.
         """
         from app.auth.security import verify_token
-
         payload = verify_token(token)
         user_id = payload.get("sub")
 
@@ -314,7 +316,7 @@ class AuthService:
             )
 
         db = self.get_db()
-        user = await db.users.find_one({"_id": user_id})
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
 
         if not user:
             raise HTTPException(

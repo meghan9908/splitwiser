@@ -69,6 +69,8 @@ class ApiService {
 
   // Auth endpoints
   async signup(email: string, password: string, name: string) {
+    console.log("Signing data:", API_CONFIG, API_CONFIG.ENDPOINTS.SIGNUP_EMAIL);
+    console.log("Signup data:", { email, password, name });
     return this.request(API_CONFIG.ENDPOINTS.SIGNUP_EMAIL, {
       method: 'POST',
       body: JSON.stringify({ email, password, name }),
