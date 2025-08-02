@@ -65,6 +65,7 @@ class GroupService:
                         ),
                     }
                     enriched_members.append(
+                        {
                             "userId": member_user_id,
                             "role": member.get("role", "member"),
                             "joinedAt": member.get("joinedAt"),
@@ -75,6 +76,9 @@ class GroupService:
                             },
                         }
                     )
+                except Exception as e:
+                    # Log error and continue with basic member info
+                    print(f"Error fetching user details for {member_user_id}: {e}")
             else:
                 # Add member without user details if userId is missing
                 enriched_members.append(member)
