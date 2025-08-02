@@ -64,6 +64,7 @@ async def test_create_expense_success(expense_service, mock_group_data):
             ExpenseSplit(userId="user_b", amount=50.0),
         ],
         splitType=SplitType.EQUAL,
+        paidBy="user_a",  # Added required paidBy field
         tags=["dinner"],
     )
 
@@ -113,6 +114,7 @@ async def test_create_expense_invalid_group(expense_service):
         description="Test Dinner",
         amount=100.0,
         splits=[ExpenseSplit(userId="user_a", amount=100.0)],
+        paidBy="user_a",  # Added required paidBy field
     )
 
     with patch("app.expenses.service.mongodb") as mock_mongodb:
@@ -145,6 +147,38 @@ async def test_create_expense_invalid_group(expense_service):
             )
         assert exc_info_2.value.status_code == 403
         assert "not a member of this group" in str(exc_info_2.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_create_expense_payer_not_member(expense_service, mock_group_data):
+    """Test expense creation with payer who is not a member of the group"""
+    expense_request = ExpenseCreateRequest(
+        description="Test Dinner",
+        amount=100.0,
+        splits=[
+            ExpenseSplit(userId="user_a", amount=50.0),
+            ExpenseSplit(userId="user_b", amount=50.0),
+        ],
+        splitType=SplitType.EQUAL,
+        paidBy="non_member_user",  # User who is NOT in the group
+        tags=["dinner"],
+    )
+
+    with patch("app.expenses.service.mongodb") as mock_mongodb:
+        mock_db = MagicMock()
+        mock_mongodb.database = mock_db
+
+        mock_db.groups.find_one = AsyncMock(return_value=mock_group_data)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await expense_service.create_expense(
+                "65f1a2b3c4d5e6f7a8b9c0d0", expense_request, "user_a"
+            )
+
+        assert exc_info.value.status_code == 400
+        assert "The selected payer is not a member of this group" in str(
+            exc_info.value.detail
+        )
 
 
 @pytest.mark.asyncio
@@ -385,7 +419,10 @@ def test_expense_split_validation():
     ]
 
     expense_request = ExpenseCreateRequest(
-        description="Test expense", amount=100.0, splits=splits
+        description="Test expense",
+        amount=100.0,
+        splits=splits,
+        paidBy="user_a",  # Added required paidBy field
     )
 
     # Verify the expense was created successfully
@@ -404,7 +441,10 @@ def test_expense_split_validation():
         ]
 
         ExpenseCreateRequest(
-            description="Test expense", amount=100.0, splits=invalid_splits
+            description="Test expense",
+            amount=100.0,
+            splits=invalid_splits,
+            paidBy="user_a",  # Added required paidBy field
         )
 
 
@@ -422,6 +462,7 @@ def test_split_types():
         amount=100.0,
         splits=equal_splits,
         splitType=SplitType.EQUAL,
+        paidBy="user_a",  # Added required paidBy field
     )
 
     assert expense.splitType == SplitType.EQUAL
@@ -441,6 +482,7 @@ def test_split_types():
         amount=100.0,
         splits=unequal_splits,
         splitType=SplitType.UNEQUAL,
+        paidBy="user_a",  # Added required paidBy field
     )
 
     assert expense.splitType == SplitType.UNEQUAL
