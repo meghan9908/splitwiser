@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
@@ -124,56 +124,68 @@ const HomeScreen = ({ navigation }) => {
     setIsSettledExpanded(!isSettledExpanded);
   };
 
-  const renderGroup = ({ item }) => {
-    const { settlementStatus } = item;
+  const activeGroupRows = useMemo(() => {
+    const rows = [];
+    for (let i = 0; i < activeGroups.length; i += 2) {
+      rows.push(activeGroups.slice(i, i + 2));
+    }
+    return rows;
+  }, [activeGroups]);
 
-    const getSettlementStatusText = () => {
-      if (settlementStatus.netBalance > 0) {
-        return `You are owed ${formatCurrency(settlementStatus.netBalance)}`;
-      }
-      return `You owe ${formatCurrency(Math.abs(settlementStatus.netBalance))}`;
-    };
-
-    const getStatusColor = () =>
-      settlementStatus.netBalance > 0 ? colors.success : colors.error;
-
-    const isImage = item.imageUrl && /^(https?:|data:image)/.test(item.imageUrl);
-    const groupIcon = item.imageUrl || item.name?.charAt(0) || "?";
-
-    return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() =>
-          navigation.navigate("GroupDetails", {
-            groupId: item._id,
-            groupName: item.name,
-            groupIcon,
-          })
-        }
-      >
-        {isImage ? (
-          <Avatar.Image
-            size={60}
-            source={{ uri: item.imageUrl }}
-            style={styles.avatar}
-          />
-        ) : (
-          <Avatar.Text
-            size={60}
-            label={groupIcon}
-            style={styles.avatar}
-            labelStyle={{ ...typography.h2, color: colors.white }}
-          />
-        )}
-        <Text style={styles.groupName} numberOfLines={2}>
-          {item.name}
-        </Text>
-        <Text style={[styles.settlementStatus, { color: getStatusColor() }]}>
-          {getSettlementStatusText()}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderGroupRow = ({ item: row }) => (
+    <View style={styles.row}>
+      {row.map((item) => (
+        <TouchableOpacity
+          key={item._id}
+          style={styles.card}
+          onPress={() =>
+            navigation.navigate("GroupDetails", {
+              groupId: item._id,
+              groupName: item.name,
+              groupIcon: item.imageUrl || item.name?.charAt(0) || "?",
+            })
+          }
+        >
+          {/^(https?:|data:image)/.test(item.imageUrl) ? (
+            <Avatar.Image
+              size={60}
+              source={{ uri: item.imageUrl }}
+              style={styles.avatar}
+            />
+          ) : (
+            <Avatar.Text
+              size={60}
+              label={item.imageUrl || item.name?.charAt(0) || "?"}
+              style={styles.avatar}
+              labelStyle={{ ...typography.h2, color: colors.white }}
+            />
+          )}
+          <Text style={styles.groupName} numberOfLines={2}>
+            {item.name}
+          </Text>
+          <Text
+            style={[
+              styles.settlementStatus,
+              {
+                color:
+                  item.settlementStatus.netBalance > 0
+                    ? colors.success
+                    : colors.error,
+              },
+            ]}
+          >
+            {item.settlementStatus.netBalance > 0
+              ? `You are owed ${formatCurrency(
+                  item.settlementStatus.netBalance
+                )}`
+              : `You owe ${formatCurrency(
+                  Math.abs(item.settlementStatus.netBalance)
+                )}`}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 
   const renderSettledGroup = ({ item }) => (
     <TouchableOpacity
@@ -194,7 +206,7 @@ const HomeScreen = ({ navigation }) => {
     if (settledGroups.length === 0) return null;
 
     return (
-      <View>
+      <View style={styles.expanderContainer}>
         <TouchableOpacity
           style={styles.expanderHeader}
           onPress={toggleSettledGroups}
@@ -209,11 +221,7 @@ const HomeScreen = ({ navigation }) => {
           />
         </TouchableOpacity>
         {isSettledExpanded && (
-          <FlatList
-            data={settledGroups}
-            renderItem={renderSettledGroup}
-            keyExtractor={(item) => item._id}
-          />
+          <View>{settledGroups.map((item) => renderSettledGroup({ item }))}</View>
         )}
       </View>
     );
@@ -270,17 +278,18 @@ const HomeScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={activeGroups}
-          renderItem={renderGroup}
-          keyExtractor={(item) => item._id}
-          numColumns={2}
+          data={activeGroupRows}
+          renderItem={renderGroupRow}
+          keyExtractor={(item, index) => `row-${index}`}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                No active groups. Create or join one!
-              </Text>
-            </View>
+            !isLoading && (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  No active groups. Create or join one!
+                </Text>
+              </View>
+            )
           }
           ListFooterComponent={renderSettledGroupsExpander}
           onRefresh={fetchGroups}
@@ -295,6 +304,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.secondary,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
   loaderContainer: {
     flex: 1,
