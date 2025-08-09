@@ -1,11 +1,14 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useContext, useEffect, useState } from "react";
 import {
   Alert,
   FlatList,
+  LayoutAnimation,
+  Platform,
   StyleSheet,
-  View,
   TouchableOpacity,
-  Animated,
+  UIManager,
+  View,
 } from "react-native";
 import {
   ActivityIndicator,
@@ -19,17 +22,22 @@ import {
 } from "react-native-paper";
 import { createGroup, getGroups, getOptimizedSettlements } from "../api/groups";
 import { AuthContext } from "../context/AuthContext";
-import { formatCurrency, getCurrencySymbol } from "../utils/currency";
-import { colors, typography, spacing } from "../styles/theme";
+import { colors, spacing, typography } from "../styles/theme";
+import { formatCurrency } from "../utils/currency";
 
-const AnimatedTouchableOpacity =
-  Animated.createAnimatedComponent(TouchableOpacity);
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const HomeScreen = ({ navigation }) => {
   const { token, user } = useContext(AuthContext);
-  const [groups, setGroups] = useState([]);
+  const [activeGroups, setActiveGroups] = useState([]);
+  const [settledGroups, setSettledGroups] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [groupSettlements, setGroupSettlements] = useState({});
+  const [isSettledExpanded, setIsSettledExpanded] = useState(false);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
@@ -38,57 +46,51 @@ const HomeScreen = ({ navigation }) => {
   const showModal = () => setModalVisible(true);
   const hideModal = () => setModalVisible(false);
 
-  const calculateSettlementStatus = async (groupId, userId) => {
-    try {
-      const response = await getOptimizedSettlements(groupId);
-      const settlements = response.data.optimizedSettlements || [];
-      const userOwes = settlements.filter((s) => s.fromUserId === userId);
-      const userIsOwed = settlements.filter((s) => s.toUserId === userId);
-      const totalOwed = userOwes.reduce((sum, s) => sum + (s.amount || 0), 0);
-      const totalToReceive = userIsOwed.reduce(
-        (sum, s) => sum + (s.amount || 0),
-        0
-      );
-      return {
-        isSettled: totalOwed === 0 && totalToReceive === 0,
-        owesAmount: totalOwed,
-        owedAmount: totalToReceive,
-        netBalance: totalToReceive - totalOwed,
-      };
-    } catch (error) {
-      console.error(
-        "Failed to fetch settlement status for group:",
-        groupId,
-        error
-      );
-      return { isSettled: true, owesAmount: 0, owedAmount: 0, netBalance: 0 };
-    }
-  };
-
   const fetchGroups = async () => {
     try {
       setIsLoading(true);
       const response = await getGroups();
       const groupsList = response.data.groups;
-      setGroups(groupsList);
 
       if (user?._id) {
         const settlementPromises = groupsList.map(async (group) => {
           const status = await calculateSettlementStatus(group._id, user._id);
-          return { groupId: group._id, status };
+          return { ...group, settlementStatus: status };
         });
-        const settlementResults = await Promise.all(settlementPromises);
-        const settlementMap = {};
-        settlementResults.forEach(({ groupId, status }) => {
-          settlementMap[groupId] = status;
-        });
-        setGroupSettlements(settlementMap);
+        const groupsWithSettlements = await Promise.all(settlementPromises);
+
+        const active = groupsWithSettlements.filter(
+          (g) => !g.settlementStatus.isSettled
+        );
+        const settled = groupsWithSettlements.filter(
+          (g) => g.settlementStatus.isSettled
+        );
+
+        setActiveGroups(active);
+        setSettledGroups(settled);
       }
     } catch (error) {
       console.error("Failed to fetch groups:", error);
       Alert.alert("Error", "Failed to fetch groups.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const calculateSettlementStatus = async (groupId, userId) => {
+    try {
+      const response = await getOptimizedSettlements(groupId);
+      const settlements = response.data.optimizedSettlements || [];
+      const userOwes = settlements.filter((s) => s.fromUserId === userId);
+      const userIsOwed = settlements.filter((s) => s.toUserId === userId);
+      return {
+        isSettled: userOwes.length === 0 && userIsOwed.length === 0,
+        netBalance:
+          userIsOwed.reduce((sum, s) => sum + s.amount, 0) -
+          userOwes.reduce((sum, s) => sum + s.amount, 0),
+      };
+    } catch (error) {
+      return { isSettled: true, netBalance: 0 };
     }
   };
 
@@ -117,41 +119,30 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  const renderGroup = ({ item, index }) => {
-    const settlementStatus = groupSettlements[item._id];
-    const scale = new Animated.Value(0);
+  const toggleSettledGroups = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setIsSettledExpanded(!isSettledExpanded);
+  };
 
-    Animated.timing(scale, {
-      toValue: 1,
-      duration: 300,
-      delay: index * 100,
-      useNativeDriver: true,
-    }).start();
+  const renderGroup = ({ item }) => {
+    const { settlementStatus } = item;
 
     const getSettlementStatusText = () => {
-      if (!settlementStatus) return "Calculating balances...";
-      if (settlementStatus.isSettled) return "✓ You are settled up.";
       if (settlementStatus.netBalance > 0) {
-        return `You are owed ${formatCurrency(settlementStatus.netBalance)}.`;
+        return `You are owed ${formatCurrency(settlementStatus.netBalance)}`;
       }
-      return `You owe ${formatCurrency(
-        Math.abs(settlementStatus.netBalance)
-      )}.`;
+      return `You owe ${formatCurrency(Math.abs(settlementStatus.netBalance))}`;
     };
 
-    const getStatusColor = () => {
-      if (!settlementStatus || settlementStatus.isSettled)
-        return colors.success;
-      return settlementStatus.netBalance > 0 ? colors.success : colors.error;
-    };
+    const getStatusColor = () =>
+      settlementStatus.netBalance > 0 ? colors.success : colors.error;
 
-    const isImage =
-      item.imageUrl && /^(https?:|data:image)/.test(item.imageUrl);
+    const isImage = item.imageUrl && /^(https?:|data:image)/.test(item.imageUrl);
     const groupIcon = item.imageUrl || item.name?.charAt(0) || "?";
 
     return (
-      <AnimatedTouchableOpacity
-        style={[styles.card, { transform: [{ scale }] }]}
+      <TouchableOpacity
+        style={styles.card}
         onPress={() =>
           navigation.navigate("GroupDetails", {
             groupId: item._id,
@@ -160,29 +151,71 @@ const HomeScreen = ({ navigation }) => {
           })
         }
       >
-        <View style={styles.cardContent}>
-          {isImage ? (
-            <Avatar.Image
-              size={50}
-              source={{ uri: item.imageUrl }}
-              style={styles.avatar}
-            />
-          ) : (
-            <Avatar.Text
-              size={50}
-              label={groupIcon}
-              style={styles.avatar}
-              labelStyle={{ ...typography.h3, color: colors.white }}
-            />
-          )}
-          <View style={styles.textContainer}>
-            <Text style={styles.groupName}>{item.name}</Text>
-            <Text style={[styles.settlementStatus, { color: getStatusColor() }]}>
-              {getSettlementStatusText()}
-            </Text>
-          </View>
-        </View>
-      </AnimatedTouchableOpacity>
+        {isImage ? (
+          <Avatar.Image
+            size={60}
+            source={{ uri: item.imageUrl }}
+            style={styles.avatar}
+          />
+        ) : (
+          <Avatar.Text
+            size={60}
+            label={groupIcon}
+            style={styles.avatar}
+            labelStyle={{ ...typography.h2, color: colors.white }}
+          />
+        )}
+        <Text style={styles.groupName} numberOfLines={2}>
+          {item.name}
+        </Text>
+        <Text style={[styles.settlementStatus, { color: getStatusColor() }]}>
+          {getSettlementStatusText()}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderSettledGroup = ({ item }) => (
+    <TouchableOpacity
+      style={styles.settledCard}
+      onPress={() =>
+        navigation.navigate("GroupDetails", {
+          groupId: item._id,
+          groupName: item.name,
+        })
+      }
+    >
+      <Text style={styles.settledGroupName}>{item.name}</Text>
+      <Ionicons name="checkmark-circle" size={24} color={colors.success} />
+    </TouchableOpacity>
+  );
+
+  const renderSettledGroupsExpander = () => {
+    if (settledGroups.length === 0) return null;
+
+    return (
+      <View>
+        <TouchableOpacity
+          style={styles.expanderHeader}
+          onPress={toggleSettledGroups}
+        >
+          <Text style={styles.expanderTitle}>Settled Groups</Text>
+          <Ionicons
+            name={
+              isSettledExpanded ? "chevron-up-outline" : "chevron-down-outline"
+            }
+            size={24}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
+        {isSettledExpanded && (
+          <FlatList
+            data={settledGroups}
+            renderItem={renderSettledGroup}
+            keyExtractor={(item) => item._id}
+          />
+        )}
+      </View>
     );
   };
 
@@ -237,17 +270,19 @@ const HomeScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
-          data={groups}
+          data={activeGroups}
           renderItem={renderGroup}
           keyExtractor={(item) => item._id}
+          numColumns={2}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                No groups found. Create or join one!
+                No active groups. Create or join one!
               </Text>
             </View>
           }
+          ListFooterComponent={renderSettledGroupsExpander}
           onRefresh={fetchGroups}
           refreshing={isLoading}
         />
@@ -271,40 +306,64 @@ const styles = StyleSheet.create({
     padding: spacing.md,
   },
   card: {
+    flex: 1,
     backgroundColor: colors.white,
     borderRadius: spacing.sm,
-    marginBottom: spacing.md,
     padding: spacing.md,
+    margin: spacing.sm,
+    alignItems: "center",
     shadowColor: colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
-  cardContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
   avatar: {
-    marginRight: spacing.md,
+    marginBottom: spacing.md,
     backgroundColor: colors.primary,
-  },
-  textContainer: {
-    flex: 1,
   },
   groupName: {
     ...typography.h3,
     color: colors.text,
+    textAlign: "center",
     marginBottom: spacing.xs,
   },
   settlementStatus: {
     ...typography.body,
+    textAlign: "center",
+  },
+  settledCard: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: colors.white,
+    borderRadius: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  settledGroupName: {
+    ...typography.body,
+    color: colors.text,
+  },
+  expanderHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.md,
+    marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.secondary,
+  },
+  expanderTitle: {
+    ...typography.h3,
+    color: colors.textSecondary,
   },
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     marginTop: 100,
+    width: "100%",
   },
   emptyText: {
     ...typography.body,
