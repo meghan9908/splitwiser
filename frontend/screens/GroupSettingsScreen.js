@@ -95,7 +95,98 @@ const GroupSettingsScreen = ({ route, navigation }) => {
     }
   };
 
-  // ... (onKick, onLeave, onDeleteGroup methods remain the same)
+  const onKick = (memberId, memberName) => {
+    Alert.alert(
+      "Kick Member",
+      `Are you sure you want to kick ${memberName} from the group?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Kick",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiRemoveMember(groupId, memberId);
+              setMembers(members.filter((m) => m.userId !== memberId));
+              Alert.alert("Success", `${memberName} has been kicked.`);
+            } catch (error) {
+              Alert.alert("Error", "Failed to kick member.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const onLeave = () => {
+    Alert.alert(
+      "Leave Group",
+      "Are you sure you want to leave this group?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Leave",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiLeaveGroup(groupId);
+              navigation.popToTop();
+            } catch (error) {
+              Alert.alert("Error", "Failed to leave group.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const onShare = async () => {
+    try {
+      await Share.share({
+        message: `Join my group on MySplitApp! Use this code: ${group?.joinCode}`,
+      });
+    } catch (error) {
+      Alert.alert("Error", "Failed to share invite code.");
+    }
+  };
+
+  const pickImage = async () => {
+    if (!isAdmin) return;
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 1,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      setPickedImage(result.assets[0]);
+      setIcon(""); // Clear emoji icon when image is picked
+    }
+  };
+
+  const onDeleteGroup = () => {
+    Alert.alert(
+      "Delete Group",
+      "Are you sure you want to delete this group? This action is irreversible.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await apiDeleteGroup(groupId);
+              navigation.popToTop();
+            } catch (error) {
+              Alert.alert("Error", "Failed to delete group.");
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const renderMemberItem = (m) => {
     const isSelf = m.userId === user?._id;
@@ -176,7 +267,7 @@ const GroupSettingsScreen = ({ route, navigation }) => {
           </View>
           <Button
             mode="outlined"
-            onPress={() => {}}
+            onPress={pickImage}
             disabled={!isAdmin}
             icon="image"
             style={styles.imageButton}
@@ -209,7 +300,7 @@ const GroupSettingsScreen = ({ route, navigation }) => {
             <Text style={styles.joinCode}>Join Code: {group?.joinCode}</Text>
             <Button
               mode="outlined"
-              onPress={() => {}}
+              onPress={onShare}
               icon="share-variant"
               labelStyle={{ color: colors.primary }}
             >
@@ -225,7 +316,7 @@ const GroupSettingsScreen = ({ route, navigation }) => {
           <Button
             mode="outlined"
             textColor={colors.error}
-            onPress={() => {}}
+            onPress={onLeave}
             icon="logout"
             style={{ borderColor: colors.error, marginBottom: spacing.sm }}
           >
@@ -235,7 +326,7 @@ const GroupSettingsScreen = ({ route, navigation }) => {
             <Button
               mode="contained"
               buttonColor={colors.error}
-              onPress={() => {}}
+              onPress={onDeleteGroup}
               icon="delete"
             >
               Delete Group

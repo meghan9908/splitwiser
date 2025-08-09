@@ -33,6 +33,30 @@ const CustomCheckbox = ({ label, status, onPress }) => (
   </TouchableOpacity>
 );
 
+const SplitInputRow = ({
+  label,
+  value,
+  onChangeText,
+  keyboardType = "numeric",
+  disabled = false,
+  isPercentage = false,
+}) => (
+  <View style={styles.splitRow}>
+    <Text style={styles.splitLabel}>{label}</Text>
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <TextInput
+        style={styles.splitInput}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        disabled={disabled}
+        theme={{ colors: { primary: colors.accent } }}
+      />
+      {isPercentage && <Text style={styles.percentageSymbol}>%</Text>}
+    </View>
+  </View>
+);
+
 const AddExpenseScreen = ({ route, navigation }) => {
   const { groupId } = route.params;
   const { user } = useContext(AuthContext);
@@ -143,8 +167,37 @@ const AddExpenseScreen = ({ route, navigation }) => {
             amount: parseFloat(value),
             type: "unequal",
           }));
+      } else if (splitMethod === "percentage") {
+        const totalPercentage = Object.values(percentages).reduce(
+          (sum, val) => sum + parseFloat(val || "0"),
+          0
+        );
+        if (Math.abs(totalPercentage - 100) > 0.01) {
+          throw new Error("Percentages must add up to 100.");
+        }
+        splits = Object.entries(percentages)
+          .filter(([, value]) => parseFloat(value || "0") > 0)
+          .map(([userId, value]) => ({
+            userId,
+            amount: (numericAmount * parseFloat(value)) / 100,
+            type: "percentage",
+          }));
+      } else if (splitMethod === "shares") {
+        const totalShares = Object.values(shares).reduce(
+          (sum, val) => sum + parseFloat(val || "0"),
+          0
+        );
+        if (totalShares === 0) {
+          throw new Error("Total shares cannot be zero.");
+        }
+        splits = Object.entries(shares)
+          .filter(([, value]) => parseFloat(value || "0") > 0)
+          .map(([userId, value]) => ({
+            userId,
+            amount: (numericAmount * parseFloat(value)) / totalShares,
+            type: "shares",
+          }));
       }
-      // ... other split methods logic
       const expenseData = {
         description,
         amount: numericAmount,
@@ -177,7 +230,40 @@ const AddExpenseScreen = ({ route, navigation }) => {
             onPress={() => handleMemberSelect(member.userId)}
           />
         ));
-      // ... other cases
+      case "exact":
+        return members.map((member) => (
+          <SplitInputRow
+            key={member.userId}
+            label={member.user.name}
+            value={exactAmounts[member.userId]}
+            onChangeText={(text) =>
+              setExactAmounts({ ...exactAmounts, [member.userId]: text })
+            }
+          />
+        ));
+      case "percentage":
+        return members.map((member) => (
+          <SplitInputRow
+            key={member.userId}
+            label={member.user.name}
+            value={percentages[member.userId]}
+            onChangeText={(text) =>
+              setPercentages({ ...percentages, [member.userId]: text })
+            }
+            isPercentage
+          />
+        ));
+      case "shares":
+        return members.map((member) => (
+          <SplitInputRow
+            key={member.userId}
+            label={member.user.name}
+            value={shares[member.userId]}
+            onChangeText={(text) =>
+              setShares({ ...shares, [member.userId]: text })
+            }
+          />
+        ));
       default:
         return null;
     }
@@ -227,25 +313,25 @@ const AddExpenseScreen = ({ route, navigation }) => {
           theme={{ colors: { primary: colors.accent } }}
         />
 
-        <Menu
-          visible={menuVisible}
-          onDismiss={() => setMenuVisible(false)}
-          anchor={
-            <TouchableOpacity
-              style={styles.menuAnchor}
-              onPress={() => setMenuVisible(true)}
-            >
-              <Text style={styles.menuAnchorText}>
-                Paid by: {selectedPayerName}
-              </Text>
-              <Ionicons
-                name="chevron-down-outline"
-                size={24}
-                color={colors.textSecondary}
-              />
-            </TouchableOpacity>
-          }
-        >
+        <View>
+          <Text style={styles.label}>Paid by</Text>
+          <Menu
+            visible={menuVisible}
+            onDismiss={() => setMenuVisible(false)}
+            anchor={
+              <TouchableOpacity
+                style={styles.menuAnchor}
+                onPress={() => setMenuVisible(true)}
+              >
+                <Text style={styles.menuAnchorText}>{selectedPayerName}</Text>
+                <Ionicons
+                  name="chevron-down-outline"
+                  size={24}
+                  color={colors.textSecondary}
+                />
+              </TouchableOpacity>
+            }
+          >
           {members.map((member) => (
             <Menu.Item
               key={member.userId}
@@ -257,6 +343,7 @@ const AddExpenseScreen = ({ route, navigation }) => {
             />
           ))}
         </Menu>
+        </View>
 
         <Text style={styles.splitTitle}>Split Method</Text>
         <SegmentedButtons
@@ -341,6 +428,11 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
   },
+  label: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -350,6 +442,27 @@ const styles = StyleSheet.create({
     ...typography.body,
     color: colors.text,
     marginLeft: spacing.md,
+  },
+  splitRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: spacing.sm,
+  },
+  splitLabel: {
+    ...typography.body,
+    color: colors.text,
+    flex: 1,
+  },
+  splitInput: {
+    width: 100,
+    textAlign: "right",
+    backgroundColor: colors.white,
+  },
+  percentageSymbol: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginLeft: spacing.sm,
   },
 });
 
