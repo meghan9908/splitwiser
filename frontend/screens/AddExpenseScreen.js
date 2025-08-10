@@ -33,137 +33,183 @@ const CustomCheckbox = ({ label, status, onPress }) => (
   </TouchableOpacity>
 );
 
-const SplitInputRow = ({ label, value, onChangeText, isPercentage }) => (
+const SplitInputRow = ({
+  label,
+  value,
+  onChangeText,
+  keyboardType = "numeric",
+  disabled = false,
+  isPercentage = false,
+}) => (
   <View style={styles.splitRow}>
     <Text style={styles.splitLabel}>{label}</Text>
-    <TextInput
-      value={value}
-      onChangeText={onChangeText}
-      keyboardType="numeric"
-      style={styles.splitInput}
-    />
-    {isPercentage && <Text style={styles.percentageSymbol}>%</Text>}
+    <View style={{ flexDirection: "row", alignItems: "center" }}>
+      <TextInput
+        style={styles.splitInput}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        disabled={disabled}
+        theme={{ colors: { primary: colors.accent } }}
+      />
+      {isPercentage && <Text style={styles.percentageSymbol}>%</Text>}
+    </View>
   </View>
 );
 
 const AddExpenseScreen = ({ route, navigation }) => {
   const { groupId } = route.params;
-  const { token, user } = useContext(AuthContext);
-  const [members, setMembers] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useContext(AuthContext);
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
-  const [payerId, setPayerId] = useState(null);
+  const [members, setMembers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [splitMethod, setSplitMethod] = useState("equal");
-  const [exactAmounts, setExactAmounts] = useState({});
+  const [payerId, setPayerId] = useState(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+
   const [percentages, setPercentages] = useState({});
   const [shares, setShares] = useState({});
+  const [exactAmounts, setExactAmounts] = useState({});
   const [selectedMembers, setSelectedMembers] = useState({});
-  const [menuVisible, setMenuVisible] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const loadMembers = async () => {
+    const fetchMembers = async () => {
       try {
-        const res = await getGroupMembers(groupId);
-        setMembers(res.data || []);
-        const initial = {};
-        (res.data || []).forEach((m) => {
-          initial[m.userId] = true; // include by default for equal split
+        const response = await getGroupMembers(groupId);
+        setMembers(response.data);
+        const initialShares = {};
+        const initialPercentages = {};
+        const initialExactAmounts = {};
+        const initialSelectedMembers = {};
+        const numMembers = response.data.length;
+        const basePercentage = Math.floor(100 / numMembers);
+        const remainder = 100 - basePercentage * numMembers;
+
+        response.data.forEach((member, index) => {
+          initialShares[member.userId] = "1";
+          let memberPercentage = basePercentage;
+          if (index < remainder) {
+            memberPercentage += 1;
+          }
+          initialPercentages[member.userId] = memberPercentage.toString();
+          initialExactAmounts[member.userId] = "0.00";
+          initialSelectedMembers[member.userId] = true;
         });
-        setSelectedMembers(initial);
-      } catch (e) {
-        Alert.alert("Error", "Failed to load members");
+        setShares(initialShares);
+        setPercentages(initialPercentages);
+        setExactAmounts(initialExactAmounts);
+        setSelectedMembers(initialSelectedMembers);
+
+        const currentUserMember = response.data.find(
+          (member) => member.userId === user._id
+        );
+        if (currentUserMember) {
+          setPayerId(user._id);
+        } else if (response.data.length > 0) {
+          setPayerId(response.data[0].userId);
+        }
+      } catch (error) {
+        console.error("Failed to fetch members:", error);
+        Alert.alert("Error", "Failed to fetch group members.");
       } finally {
         setIsLoading(false);
       }
     };
-    loadMembers();
+    if (groupId) {
+      fetchMembers();
+    }
   }, [groupId]);
-
-  const toNumber = (v) => {
-    if (v === null || v === undefined) return 0;
-    const cleaned = String(v).replace(/[^0-9.+-]/g, '').trim();
-    if (cleaned === '' || cleaned === '.' || cleaned === '-' || cleaned === '+') return 0;
-    const n = parseFloat(cleaned);
-    return Number.isFinite(n) ? n : 0;
-  };
 
   const handleAddExpense = async () => {
     if (!description || !amount || !payerId) {
       Alert.alert("Error", "Please fill in all required fields.");
       return;
     }
-    const numericAmount = toNumber(amount);
-    if (numericAmount <= 0) {
-      Alert.alert("Error", "Please enter a valid amount greater than 0.");
+    const numericAmount = parseFloat(amount);
+    if (isNaN(numericAmount) || numericAmount <= 0) {
+      Alert.alert("Error", "Please enter a valid amount.");
       return;
     }
+
     setIsSubmitting(true);
     try {
       let splits = [];
       if (splitMethod === "equal") {
-        const includedMembers = Object.keys(selectedMembers).filter((id) => selectedMembers[id]);
+        const includedMembers = Object.keys(selectedMembers).filter(
+          (userId) => selectedMembers[userId]
+        );
         if (includedMembers.length === 0)
           throw new Error("Select at least one member for the split.");
-        const base = Math.floor((numericAmount * 100) / includedMembers.length);
-        const remainder = (numericAmount * 100) - base * includedMembers.length;
-        splits = includedMembers.map((userId, idx) => ({
+        const splitAmount =
+          Math.round((numericAmount / includedMembers.length) * 100) / 100;
+        const remainder =
+          Math.round(
+            (numericAmount - splitAmount * includedMembers.length) * 100
+          ) / 100;
+        splits = includedMembers.map((userId, index) => ({
           userId,
-          amount: (base + (idx === 0 ? remainder : 0)) / 100,
+          amount: index === 0 ? splitAmount + remainder : splitAmount,
           type: "equal",
         }));
       } else if (splitMethod === "exact") {
-        const total = Object.values(exactAmounts).reduce((sum, val) => sum + toNumber(val), 0);
-        if (!Number.isFinite(total) || Math.abs(total - numericAmount) > 0.01)
+        const total = Object.values(exactAmounts).reduce(
+          (sum, val) => sum + parseFloat(val || "0"),
+          0
+        );
+        if (Math.abs(total - numericAmount) > 0.01)
           throw new Error("Exact amounts must add up to the total.");
         splits = Object.entries(exactAmounts)
-          .map(([userId, value]) => ({ userId, amount: toNumber(value) }))
-          .filter((s) => s.amount > 0)
-          .map((s) => ({ ...s, type: "unequal" }));
-        const diff = Math.round((numericAmount - splits.reduce((a, b) => a + b.amount, 0)) * 100) / 100;
-        if (Math.abs(diff) > 0 && splits.length > 0) splits[0].amount += diff;
-      } else if (splitMethod === "percentage") {
-        const totalPercentage = Object.values(percentages).reduce((sum, val) => sum + toNumber(val), 0);
-        if (!Number.isFinite(totalPercentage) || Math.abs(totalPercentage - 100) > 0.01)
-          throw new Error("Percentages must add up to 100.");
-        splits = Object.entries(percentages)
-          .map(([userId, value]) => ({ userId, pct: toNumber(value) }))
-          .filter((s) => s.pct > 0)
-          .map((s) => ({
-            userId: s.userId,
-            amount: Math.round((numericAmount * (s.pct / 100)) * 100) / 100,
-            type: "percentage",
-          }));
-        const diff = Math.round((numericAmount - splits.reduce((a, b) => a + b.amount, 0)) * 100) / 100;
-        if (Math.abs(diff) > 0 && splits.length > 0) splits[0].amount += diff;
-      } else if (splitMethod === "shares") {
-        const totalShares = Object.values(shares).reduce((sum, val) => sum + toNumber(val), 0);
-        if (!Number.isFinite(totalShares) || totalShares <= 0) throw new Error("Total shares must be positive.");
-        splits = Object.entries(shares)
-          .map(([userId, value]) => ({ userId, shares: toNumber(value) }))
-          .filter((s) => s.shares > 0)
-          .map((s) => ({
-            userId: s.userId,
-            amount: Math.round((numericAmount * (s.shares / totalShares)) * 100) / 100,
+          .filter(([, value]) => parseFloat(value || "0") > 0)
+          .map(([userId, value]) => ({
+            userId,
+            amount: parseFloat(value),
             type: "unequal",
           }));
-        const diff = Math.round((numericAmount - splits.reduce((a, b) => a + b.amount, 0)) * 100) / 100;
-        if (Math.abs(diff) > 0 && splits.length > 0) splits[0].amount += diff;
+      } else if (splitMethod === "percentage") {
+        const totalPercentage = Object.values(percentages).reduce(
+          (sum, val) => sum + parseFloat(val || "0"),
+          0
+        );
+        if (Math.abs(totalPercentage - 100) > 0.01) {
+          throw new Error("Percentages must add up to 100.");
+        }
+        splits = Object.entries(percentages)
+          .filter(([, value]) => parseFloat(value || "0") > 0)
+          .map(([userId, value]) => ({
+            userId,
+            amount: (numericAmount * parseFloat(value)) / 100,
+            type: "percentage",
+          }));
+      } else if (splitMethod === "shares") {
+        const totalShares = Object.values(shares).reduce(
+          (sum, val) => sum + parseFloat(val || "0"),
+          0
+        );
+        if (totalShares === 0) {
+          throw new Error("Total shares cannot be zero.");
+        }
+        splits = Object.entries(shares)
+          .filter(([, value]) => parseFloat(value || "0") > 0)
+          .map(([userId, value]) => ({
+            userId,
+            amount: (numericAmount * parseFloat(value)) / totalShares,
+            type: "shares",
+          }));
       }
-      const splitTypeMap = { exact: "unequal", shares: "unequal" };
       const expenseData = {
         description,
         amount: numericAmount,
         paidBy: payerId,
-        splitType: splitTypeMap[splitMethod] || splitMethod,
+        splitType: splitMethod,
         splits,
       };
       await createExpense(groupId, expenseData);
       Alert.alert("Success", "Expense added successfully.");
       navigation.goBack();
-    } catch (e) {
-      Alert.alert("Error", e.message || "Failed to add expense.");
+    } catch (error) {
+      Alert.alert("Error", error.message || "Failed to create expense.");
     } finally {
       setIsSubmitting(false);
     }
@@ -190,7 +236,9 @@ const AddExpenseScreen = ({ route, navigation }) => {
             key={member.userId}
             label={member.user.name}
             value={exactAmounts[member.userId]}
-            onChangeText={(text) => setExactAmounts({ ...exactAmounts, [member.userId]: text })}
+            onChangeText={(text) =>
+              setExactAmounts({ ...exactAmounts, [member.userId]: text })
+            }
           />
         ));
       case "percentage":
@@ -199,7 +247,9 @@ const AddExpenseScreen = ({ route, navigation }) => {
             key={member.userId}
             label={member.user.name}
             value={percentages[member.userId]}
-            onChangeText={(text) => setPercentages({ ...percentages, [member.userId]: text })}
+            onChangeText={(text) =>
+              setPercentages({ ...percentages, [member.userId]: text })
+            }
             isPercentage
           />
         ));
@@ -209,7 +259,9 @@ const AddExpenseScreen = ({ route, navigation }) => {
             key={member.userId}
             label={member.user.name}
             value={shares[member.userId]}
-            onChangeText={(text) => setShares({ ...shares, [member.userId]: text })}
+            onChangeText={(text) =>
+              setShares({ ...shares, [member.userId]: text })
+            }
           />
         ));
       default:
@@ -225,7 +277,8 @@ const AddExpenseScreen = ({ route, navigation }) => {
     );
   }
 
-  const selectedPayerName = members.find((m) => m.userId === payerId)?.user.name || "Select Payer";
+  const selectedPayerName =
+    members.find((m) => m.userId === payerId)?.user.name || "Select Payer";
 
   return (
     <KeyboardAvoidingView
@@ -233,8 +286,15 @@ const AddExpenseScreen = ({ route, navigation }) => {
       style={styles.container}
     >
       <Appbar.Header style={{ backgroundColor: colors.primary }}>
-        <Appbar.BackAction onPress={() => navigation.goBack()} color={colors.white} />
-        <Appbar.Content title="Add Expense" color={colors.white} titleStyle={{ ...typography.h2 }} />
+        <Appbar.BackAction
+          onPress={() => navigation.goBack()}
+          color={colors.white}
+        />
+        <Appbar.Content
+          title="Add Expense"
+          color={colors.white}
+          titleStyle={{ ...typography.h2 }}
+        />
       </Appbar.Header>
       <ScrollView contentContainerStyle={styles.content}>
         <TextInput
@@ -252,30 +312,39 @@ const AddExpenseScreen = ({ route, navigation }) => {
           keyboardType="numeric"
           theme={{ colors: { primary: colors.accent } }}
         />
+
         <View>
           <Text style={styles.label}>Paid by</Text>
           <Menu
             visible={menuVisible}
             onDismiss={() => setMenuVisible(false)}
             anchor={
-              <TouchableOpacity style={styles.menuAnchor} onPress={() => setMenuVisible(true)}>
+              <TouchableOpacity
+                style={styles.menuAnchor}
+                onPress={() => setMenuVisible(true)}
+              >
                 <Text style={styles.menuAnchorText}>{selectedPayerName}</Text>
-                <Ionicons name="chevron-down-outline" size={24} color={colors.textSecondary} />
+                <Ionicons
+                  name="chevron-down-outline"
+                  size={24}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             }
           >
-            {members.map((member) => (
-              <Menu.Item
-                key={member.userId}
-                onPress={() => {
-                  setPayerId(member.userId);
-                  setMenuVisible(false);
-                }}
-                title={member.user.name}
-              />
-            ))}
-          </Menu>
+          {members.map((member) => (
+            <Menu.Item
+              key={member.userId}
+              onPress={() => {
+                setPayerId(member.userId);
+                setMenuVisible(false);
+              }}
+              title={member.user.name}
+            />
+          ))}
+        </Menu>
         </View>
+
         <Text style={styles.splitTitle}>Split Method</Text>
         <SegmentedButtons
           value={splitMethod}
@@ -289,7 +358,9 @@ const AddExpenseScreen = ({ route, navigation }) => {
           style={styles.input}
           theme={{ colors: { primary: colors.primary } }}
         />
+
         <View style={styles.splitInputsContainer}>{renderSplitInputs()}</View>
+
         <Button
           mode="contained"
           onPress={handleAddExpense}

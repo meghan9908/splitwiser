@@ -4,7 +4,6 @@ import {
   Alert,
   FlatList,
   LayoutAnimation,
-  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
