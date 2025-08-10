@@ -1,10 +1,11 @@
 import * as ImagePicker from "expo-image-picker";
 import { useContext, useState } from "react";
-import { Alert, StyleSheet, View, Text } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { Appbar, Avatar, Button, TextInput } from "react-native-paper";
 import { updateUser } from "../api/auth";
 import { AuthContext } from "../context/AuthContext";
 import { colors, spacing, typography } from "../styles/theme";
+import { getInitial, isValidImageUri } from "../utils/avatar";
 
 const EditProfileScreen = ({ navigation }) => {
   const { user, updateUserInContext } = useContext(AuthContext);
@@ -76,19 +77,25 @@ const EditProfileScreen = ({ navigation }) => {
         <Text style={styles.title}>Edit Your Details</Text>
 
         <View style={styles.profilePictureSection}>
-          <Avatar.Image
-            size={120}
-            source={{
-              uri:
-                pickedImage?.uri ||
-                (user?.imageUrl && /^(https?:|data:image)/.test(user.imageUrl)
-                  ? user.imageUrl
-                  : `https://avatar.iran.liara.run/username?username=${
-                      user?.name || "A"
-                    }`),
-            }}
-            style={styles.avatar}
-          />
+          {pickedImage?.uri ? (
+            <Avatar.Image
+              size={120}
+              source={{ uri: pickedImage.uri }}
+              style={styles.avatar}
+            />
+      ) : isValidImageUri(user?.imageUrl) ? (
+            <Avatar.Image
+              size={120}
+              source={{ uri: user.imageUrl }}
+              style={styles.avatar}
+            />
+          ) : (
+            <Avatar.Text
+              size={120}
+        label={getInitial(user?.name || 'A')}
+              style={styles.avatar}
+            />
+          )}
           <Button
             mode="text"
             onPress={pickImage}

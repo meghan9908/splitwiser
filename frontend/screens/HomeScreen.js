@@ -23,6 +23,7 @@ import {
 import { createGroup, getGroups, getOptimizedSettlements } from "../api/groups";
 import { AuthContext } from "../context/AuthContext";
 import { colors, spacing, typography } from "../styles/theme";
+import { getInitial, isValidImageUri } from "../utils/avatar";
 import { formatCurrency } from "../utils/currency";
 
 if (
@@ -83,14 +84,18 @@ const HomeScreen = ({ navigation }) => {
       const settlements = response.data.optimizedSettlements || [];
       const userOwes = settlements.filter((s) => s.fromUserId === userId);
       const userIsOwed = settlements.filter((s) => s.toUserId === userId);
-      return {
-        isSettled: userOwes.length === 0 && userIsOwed.length === 0,
-        netBalance:
-          userIsOwed.reduce((sum, s) => sum + s.amount, 0) -
-          userOwes.reduce((sum, s) => sum + s.amount, 0),
-      };
+      const netBalance =
+        userIsOwed.reduce((sum, s) => sum + s.amount, 0) -
+        userOwes.reduce((sum, s) => sum + s.amount, 0);
+      const epsilon = 0.005; // treat tiny residuals as zero
+      const isSettled =
+        userOwes.length === 0 &&
+        userIsOwed.length === 0 &&
+        Math.abs(netBalance) < epsilon;
+      return { isSettled, netBalance };
     } catch (error) {
-      return { isSettled: true, netBalance: 0 };
+      // On error, treat as unsettled so user still sees group and can retry
+      return { isSettled: false, netBalance: 0 };
     }
   };
 
@@ -146,20 +151,27 @@ const HomeScreen = ({ navigation }) => {
             })
           }
         >
-          {/^(https?:|data:image)/.test(item.imageUrl) ? (
-            <Avatar.Image
-              size={60}
-              source={{ uri: item.imageUrl }}
-              style={styles.avatar}
-            />
-          ) : (
-            <Avatar.Text
-              size={60}
-              label={item.imageUrl || item.name?.charAt(0) || "?"}
-              style={styles.avatar}
-              labelStyle={{ ...typography.h2, color: colors.white }}
-            />
-          )}
+          {(() => {
+      const initial = getInitial(item.name);
+      const uri = item.imageUrl;
+      if (isValidImageUri(uri)) {
+              return (
+                <Avatar.Image
+                  size={60}
+                  source={{ uri }}
+                  style={styles.avatar}
+                />
+              );
+            }
+            return (
+              <Avatar.Text
+                size={60}
+        label={initial}
+                style={styles.avatar}
+                labelStyle={{ ...typography.h2, color: colors.white }}
+              />
+            );
+          })()}
           <Text style={styles.groupName} numberOfLines={2}>
             {item.name}
           </Text>
@@ -221,7 +233,11 @@ const HomeScreen = ({ navigation }) => {
           />
         </TouchableOpacity>
         {isSettledExpanded && (
-          <View>{settledGroups.map((item) => renderSettledGroup({ item }))}</View>
+          <View>
+            {settledGroups.map((item) => (
+              <View key={item._id}>{renderSettledGroup({ item })}</View>
+            ))}
+          </View>
         )}
       </View>
     );

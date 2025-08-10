@@ -19,62 +19,50 @@ import {
 import { getFriendsBalance, getGroups } from "../api/groups";
 import { AuthContext } from "../context/AuthContext";
 import { colors, spacing, typography } from "../styles/theme";
+import { getInitial, isValidImageUri } from "../utils/avatar";
 import { formatCurrency } from "../utils/currency";
 
 const FriendItem = ({ item, onToggle, isExpanded }) => {
-  const balanceColor =
-    item.netBalance < 0 ? colors.error : colors.success;
-  const balanceText =
-    item.netBalance < 0
-      ? `You owe ${formatCurrency(Math.abs(item.netBalance))}`
-      : `Owes you ${formatCurrency(item.netBalance)}`;
+  const balanceColor = item.netBalance < 0 ? colors.error : colors.success;
+  const balanceText = item.netBalance < 0
+    ? `You owe ${formatCurrency(Math.abs(item.netBalance))}`
+    : `Owes you ${formatCurrency(item.netBalance)}`;
+
+  const friendInitial = getInitial(item.name);
+  const friendAvatar = isValidImageUri(item.imageUrl)
+    ? <Avatar.Image size={48} source={{ uri: item.imageUrl }} />
+    : <Avatar.Text size={48} label={friendInitial} />;
 
   return (
     <View style={styles.friendCard}>
       <TouchableOpacity style={styles.friendHeader} onPress={onToggle}>
-        <Avatar.Image
-          size={48}
-          source={{
-            uri:
-              item.imageUrl ||
-              `https://avatar.iran.liara.run/username?username=${item.name}`,
-          }}
-        />
+        {friendAvatar}
         <View style={styles.friendInfo}>
           <Text style={styles.friendName}>{item.name}</Text>
           <Text style={[styles.friendBalance, { color: balanceColor }]}>
-            {item.netBalance !== 0 ? balanceText : "Settled up"}
+            {item.netBalance !== 0 ? balanceText : 'Settled up'}
           </Text>
         </View>
-        <Ionicons
-          name={isExpanded ? "chevron-up-outline" : "chevron-down-outline"}
-          size={24}
-          color={colors.textSecondary}
-        />
+        <Ionicons name={isExpanded ? 'chevron-up-outline' : 'chevron-down-outline'} size={24} color={colors.textSecondary} />
       </TouchableOpacity>
       {isExpanded && (
         <View style={styles.groupBreakdown}>
           <Divider />
-          {item.groups.map((group) => (
-            <View key={group.id} style={styles.groupItem}>
-              <Avatar.Image
-                size={32}
-                source={{
-                  uri:
-                    group.imageUrl ||
-                    `https://avatar.iran.liara.run/username?username=${group.name}`,
-                }}
-              />
-              <Text style={styles.groupName}>{group.name}</Text>
-              <Text
-                style={{
-                  color: group.balance < 0 ? colors.error : colors.success,
-                }}
-              >
-                {formatCurrency(group.balance)}
-              </Text>
-            </View>
-          ))}
+          {item.groups.map(group => {
+            const groupInitial = getInitial(group.name);
+            const groupAvatar = isValidImageUri(group.imageUrl)
+              ? <Avatar.Image size={32} source={{ uri: group.imageUrl }} />
+              : <Avatar.Text size={32} label={groupInitial} />;
+            return (
+              <View key={group.id} style={styles.groupItem}>
+                {groupAvatar}
+                <Text style={styles.groupName}>{group.name}</Text>
+                <Text style={{ color: group.balance < 0 ? colors.error : colors.success }}>
+                  {formatCurrency(group.balance)}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       )}
     </View>
