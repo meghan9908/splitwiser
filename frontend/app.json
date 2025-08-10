@@ -37,8 +37,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "7d966fbc-616f-44d2-974f-36d61a2f9ae7"
+        "projectId": "afe97159-52c4-425a-9ce3-c56d4f2cb568"
       }
-    }
+    },
+    "owner": "devasy23"
   }
 }
