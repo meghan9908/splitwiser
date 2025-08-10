@@ -8,7 +8,7 @@ export const signup = (name, email, password) => {
   return apiClient.post("/auth/signup/email", { name, email, password });
 };
 
-export const signInWithGoogle = async (id_token) => {
+export const signInWithGoogle = (id_token) => {
   return apiClient.post('/auth/login/google', JSON.stringify({ id_token }));
 };
 

@@ -9,7 +9,7 @@ import {
   signInWithPopup,
   User,
 } from 'firebase/auth';
-import { auth } from './../firebase/firebaseConfig';
+import { auth } from '../firebase/firebaseConfig.web';
 import * as authApi from "../api/auth";
 import {
   clearAuthTokens,
@@ -46,6 +46,13 @@ export const AuthProvider = ({ children }) => {
         const storedFirebaseUser = await AsyncStorage.getItem('firebase_user');
 
         if (storedToken && storedUser) {
+          if (storedFirebaseUser) {
+            try {
+              setFirebaseUser(JSON.parse(storedFirebaseUser));
+            } catch {
+              // ignore parse error; storage may contain older format
+            }
+          }
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
           await setAuthTokens({
@@ -195,63 +202,66 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Google Sign-In
-  const signInWithGoogle = async () => {
-    try {
-      if (Platform.OS === 'web') {
-        // ---- WEB FLOW ----
-        const provider = new GoogleAuthProvider();
-        const result = await signInWithPopup(auth, provider);
+const signInWithGoogle = async () => {
+  try {
+    if (Platform.OS === 'web') {
+      // ---- WEB FLOW ----
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
 
-        const firebaseIdToken = await result.user.getIdToken(true);
-        console.log('Google ID Token:', result);
-        setFirebaseUser(result.user);
-        setIdToken(firebaseIdToken);
+      const firebaseIdToken = await result.user.getIdToken(true);
+      setFirebaseUser(result.user);
+      setIdToken(firebaseIdToken);
 
-        // You can send this token to your backend for verification and user creation
-        const backendResponse = await authApi.signInWithGoogle(firebaseIdToken);
-        setToken(backendResponse.data.access_token);
-        setUser(backendResponse.data.user);
+      // Exchange with backend for app tokens
+      const backendResponse = await authApi.signInWithGoogle(firebaseIdToken);
+      const { access_token, refresh_token, user: userData } = backendResponse.data;
+      setToken(access_token);
+      if (refresh_token) setRefresh(refresh_token);
+      await setAuthTokens({
+        newAccessToken: access_token,
+        newRefreshToken: refresh_token,
+      });
+      setUser(userData);
 
-        console.log('Google sign-in success (web)');
-        return { idToken: firebaseIdToken, firebaseUser: result.user };
-      } else {
-        // ---- NATIVE FLOW ----
-        await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      return { idToken: firebaseIdToken, firebaseUser: result.user };
+    } else {
+      // ---- NATIVE FLOW ----
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
 
-        const userInfo = await GoogleSignin.signIn();
+      const { idToken: googleIdToken } = await GoogleSignin.signIn();
+      if (!googleIdToken) throw new Error('No Google ID token returned');
 
-        if (!userInfo?.data?.idToken) throw new Error('No Google ID token returned');
+      const credential = GoogleAuthProvider.credential(googleIdToken);
+      const userCredential = await signInWithCredential(auth, credential);
 
-        const credential = GoogleAuthProvider.credential(userInfo.data.idToken);
-        const userCredential = await signInWithCredential(auth, credential);
+      const firebaseIdToken = await userCredential.user.getIdToken(true);
+      setFirebaseUser(userCredential.user);
+      setIdToken(firebaseIdToken);
 
-        const firebaseIdToken = await userCredential.user.getIdToken(true);
-        setFirebaseUser(userCredential.user);
-        setIdToken(firebaseIdToken);
+      const backendResponse = await authApi.signInWithGoogle(firebaseIdToken);
+      const { access_token, refresh_token, user: userData } = backendResponse.data;
+      setToken(access_token);
+      if (refresh_token) setRefresh(refresh_token);
+      await setAuthTokens({
+        newAccessToken: access_token,
+        newRefreshToken: refresh_token,
+      });
+      setUser(userData);
 
-        // You can send this token to your backend for verification and user creation
-        // const backendResponse = await authApi.googleLogin(firebaseIdToken);
-        // setToken(backendResponse.data.access_token);
-        // setUser(backendResponse.data.user);
-
-        console.log('Google sign-in success');
-        const backendResponse = await authApi.signInWithGoogle(firebaseIdToken);
-        setToken(backendResponse.data.access_token);
-        setUser(backendResponse.data.user);
-        console.log('Firebase ID Token:', firebaseIdToken, userCredential.user);
-        return { idToken: firebaseIdToken, firebaseUser: userCredential.user };
-      }
-    } catch (error) {
-      console.error('Google Sign-In error:', error);
-      throw error;
+      return { idToken: firebaseIdToken, firebaseUser: userCredential.user };
     }
-  };
+  } catch (error) {
+    console.error('Google Sign-In error:', error?.message || error);
+    throw error;
+  }
+};
 
-  // Unified logout function
-  const logout = async () => {
-    try {
-      // Clear stored authentication data
-      await AsyncStorage.removeItem('auth_token');
+// Unified logout function
+const logout = async () => {
+  try {
+    // Clear stored authentication data
+     await AsyncStorage.removeItem('auth_token');
       await AsyncStorage.removeItem('user_data');
       await AsyncStorage.removeItem('firebase_id_token');
       await AsyncStorage.removeItem('firebase_user');
@@ -295,8 +305,8 @@ export const AuthProvider = ({ children }) => {
 
   // Helper function to get current auth method
   const getAuthMethod = () => {
-    if (token && user) return 'email';
     if (idToken && firebaseUser) return 'google';
+    if (token && user) return 'email';
     return null;
   };
 
