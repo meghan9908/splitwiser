@@ -1,6 +1,6 @@
 // AuthContext.js
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, useEffect, useState } from 'react';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { createContext, useEffect, useState } from "react";
 import { Platform } from 'react-native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import {
@@ -10,12 +10,18 @@ import {
   User,
 } from 'firebase/auth';
 import { auth } from './../firebase/firebaseConfig';
-import * as authApi from '../api/auth';
+import * as authApi from "../api/auth";
+import {
+  clearAuthTokens,
+  setAuthTokens,
+  setTokenUpdateListener,
+} from "../api/client";
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
+  const [refresh, setRefresh] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [firebaseUser, setFirebaseUser] = useState(null);
   const [idToken, setIdToken] = useState(null);
@@ -35,20 +41,28 @@ export const AuthProvider = ({ children }) => {
       try {
         const storedToken = await AsyncStorage.getItem('auth_token');
         const storedUser = await AsyncStorage.getItem('user_data');
+        const storedRefresh = await AsyncStorage.getItem("refresh_token");
         const storedIdToken = await AsyncStorage.getItem('firebase_id_token');
         const storedFirebaseUser = await AsyncStorage.getItem('firebase_user');
 
         if (storedToken && storedUser) {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
-        }
-
-        if (storedIdToken && storedFirebaseUser) {
-          setIdToken(storedIdToken);
-          setFirebaseUser(JSON.parse(storedFirebaseUser));
+          await setAuthTokens({
+            newAccessToken: storedToken,
+            newRefreshToken: storedRefresh,
+          });
+          // Normalize user id shape: ensure `_id` exists even if API stored `id`
+          const parsed = JSON.parse(storedUser);
+          const normalized = parsed?._id
+            ? parsed
+            : parsed?.id
+            ? { ...parsed, _id: parsed.id }
+            : parsed;
+          setUser(normalized);
         }
       } catch (error) {
-        console.error('Failed to load stored authentication:', error);
+        console.error("Failed to load stored authentication:", error);
       } finally {
         setIsLoading(false);
       }
@@ -57,34 +71,57 @@ export const AuthProvider = ({ children }) => {
     loadStoredAuth();
   }, []);
 
-  // Save token to AsyncStorage whenever it changes
+  // Subscribe to token updates from the api client (refresh flow)
+  useEffect(() => {
+    setTokenUpdateListener(async ({ accessToken, refreshToken }) => {
+      if (accessToken && accessToken !== token) setToken(accessToken);
+      if (refreshToken && refreshToken !== refresh) setRefresh(refreshToken);
+    });
+  }, [token, refresh]);
+
+  // Save tokens to AsyncStorage whenever they change
   useEffect(() => {
     const saveToken = async () => {
       try {
         if (token) {
-          await AsyncStorage.setItem('auth_token', token);
+          await AsyncStorage.setItem("auth_token", token);
         } else {
-          await AsyncStorage.removeItem('auth_token');
+          await AsyncStorage.removeItem("auth_token");
         }
       } catch (error) {
-        console.error('Failed to save token to storage:', error);
+        console.error("Failed to save token to storage:", error);
       }
     };
 
     saveToken();
   }, [token]);
 
+  useEffect(() => {
+    const saveRefresh = async () => {
+      try {
+        if (refresh) {
+          await AsyncStorage.setItem("refresh_token", refresh);
+        } else {
+          await AsyncStorage.removeItem("refresh_token");
+        }
+      } catch (error) {
+        console.error("Failed to save refresh token to storage:", error);
+      }
+    };
+    saveRefresh();
+  }, [refresh]);
+
   // Save user data to AsyncStorage whenever it changes
   useEffect(() => {
     const saveUser = async () => {
       try {
         if (user) {
-          await AsyncStorage.setItem('user_data', JSON.stringify(user));
+          await AsyncStorage.setItem("user_data", JSON.stringify(user));
         } else {
-          await AsyncStorage.removeItem('user_data');
+          await AsyncStorage.removeItem("user_data");
         }
       } catch (error) {
-        console.error('Failed to save user data to storage:', error);
+        console.error("Failed to save user data to storage:", error);
       }
     };
 
@@ -119,13 +156,26 @@ export const AuthProvider = ({ children }) => {
     try {
 
       const response = await authApi.login(email, password);
-
-      const { access_token, user: userData } = response.data;
+      const { access_token, refresh_token, user: userData } = response.data;
       setToken(access_token);
-      setUser(userData);
+      setRefresh(refresh_token);
+      await setAuthTokens({
+        newAccessToken: access_token,
+        newRefreshToken: refresh_token,
+      });
+      // Normalize user id shape: ensure `_id` exists even if backend returns `id`
+      const normalizedUser = userData?._id
+        ? userData
+        : userData?.id
+        ? { ...userData, _id: userData.id }
+        : userData;
+      setUser(normalizedUser);
       return true;
     } catch (error) {
-      console.error('Login failed:', error.response?.data?.detail || error.message);
+      console.error(
+        "Login failed:",
+        error.response?.data?.detail || error.message
+      );
       return false;
     }
   };
@@ -136,7 +186,10 @@ export const AuthProvider = ({ children }) => {
       await authApi.signup(name, email, password);
       return true;
     } catch (error) {
-      console.error('Signup failed:', error.response?.data?.detail || error.message);
+      console.error(
+        "Signup failed:",
+        error.response?.data?.detail || error.message
+      );
       return false;
     }
   };
@@ -213,18 +266,26 @@ export const AuthProvider = ({ children }) => {
         }
       }
     } catch (error) {
-      console.error('Failed to clear stored authentication:', error);
+      console.error("Failed to clear stored authentication:", error);
     }
 
     // Clear all state
     setToken(null);
+    setRefresh(null);
     setUser(null);
+    await clearAuthTokens();
     setFirebaseUser(null);
     setIdToken(null);
   };
 
   const updateUserInContext = (updatedUser) => {
-    setUser(updatedUser);
+    // Normalize on updates too
+    const normalizedUser = updatedUser?._id
+      ? updatedUser
+      : updatedUser?.id
+      ? { ...updatedUser, _id: updatedUser.id }
+      : updatedUser;
+    setUser(normalizedUser);
   };
 
   // Helper function to check if user is authenticated (either way)
@@ -241,11 +302,16 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
+     
       value={{
+       
         // Original auth state
         user,
+       
         token,
+       
         isLoading,
+       
         
         // Google auth state
         firebaseUser,
@@ -253,15 +319,19 @@ export const AuthProvider = ({ children }) => {
         
         // Auth methods
         login,
+       
         signup,
         signInWithGoogle,
+       
         logout,
+       
         updateUserInContext,
         
         // Helper methods
         isAuthenticated,
         getAuthMethod,
       }}
+    
     >
       {children}
     </AuthContext.Provider>
