@@ -1,4 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useAuthRequest } from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
 import { createContext, useEffect, useState } from "react";
 import * as authApi from "../api/auth";
 import {
@@ -6,8 +8,6 @@ import {
   setAuthTokens,
   setTokenUpdateListener,
 } from "../api/client";
-import { useAuthRequest } from "expo-auth-session/providers/google";
-import * as WebBrowser from "expo-web-browser";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   const [request, response, promptAsync] = useAuthRequest({
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_EXPO_CLIENT_ID,
+    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Use web client ID for Expo Go
     iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
     androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
