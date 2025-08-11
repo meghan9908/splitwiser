@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 import { ActivityIndicator, FAB } from "react-native-paper";
 import {
