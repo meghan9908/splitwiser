@@ -8,7 +8,7 @@ const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useContext(AuthContext);
+  const { login, loginWithGoogle } = useContext(AuthContext);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -20,6 +20,18 @@ const LoginScreen = ({ navigation }) => {
     setIsLoading(false);
     if (!success) {
       Alert.alert('Login Failed', 'Invalid email or password. Please try again.');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      await loginWithGoogle();
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+      Alert.alert('Google Sign-In Failed', 'An error occurred during Google Sign-In. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -54,6 +66,16 @@ const LoginScreen = ({ navigation }) => {
         Login
       </Button>
       <Button
+        mode="contained"
+        onPress={handleGoogleSignIn}
+        style={[styles.button, styles.googleButton]}
+        labelStyle={styles.buttonLabel}
+        icon="google"
+        disabled={isLoading}
+      >
+        Sign in with Google
+      </Button>
+      <Button
         onPress={() => navigation.navigate('Signup')}
         style={styles.signupButton}
         labelStyle={styles.signupButtonLabel}
@@ -85,6 +107,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     backgroundColor: colors.primary,
     paddingVertical: spacing.sm,
+  },
+  googleButton: {
+    backgroundColor: '#4285F4', // Google's brand color
   },
   buttonLabel: {
     ...typography.body,
