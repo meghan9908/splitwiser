@@ -19,12 +19,25 @@ export const AuthProvider = ({ children }) => {
   const [refresh, setRefresh] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // For Expo Go, we need to use the web-based auth flow
+  // Force all platforms to use web client ID in Expo Go
   const [request, response, promptAsync] = useAuthRequest({
-    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Use web client ID for Expo Go
-    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
-    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    expoClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Force web client for iOS in Expo Go
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID, // Force web client for Android in Expo Go
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    redirectUri: 'https://auth.expo.io/@devasy23/frontend',
   });
+
+  // Debug logging
+  useEffect(() => {
+    if (request) {
+      console.log("Auth request details:", {
+        url: request.url,
+        params: request.params
+      });
+    }
+  }, [request]);
 
   useEffect(() => {
     const handleGoogleSignIn = async () => {
