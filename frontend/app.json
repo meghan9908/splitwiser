@@ -24,7 +24,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "splitwiser_1.android",
+      "package": "com.splitwiser.app",
       "googleServicesFile": "./google-services.json",
       "permissions": ["READ_MEDIA_IMAGES"]
     },
